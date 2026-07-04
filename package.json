@@ -1,8 +1,8 @@
 {
-  "name": "tracker",
+  "name": "workos-dashboard",
   "version": "0.1.0",
   "private": true,
-  "description": "Tracker — a calm, focused dashboard for the WorkOS execution layer of LifeOS (successor to Sovereign; usability over gamification)",
+  "description": "WorkOS Dashboard — a calm, focused dashboard that reads the WorkOS standard (the markdown execution layer of LifeOS) and renders what to work on now",
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
@@ -10,12 +10,9 @@
   },
   "dependencies": {
     "gray-matter": "^4.0.3",
-    "lucide-react": "^1.17.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-markdown": "^9.0.1",
-    "remark-gfm": "^4.0.0"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",

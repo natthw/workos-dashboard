@@ -1,19 +1,39 @@
 import { buildCampaign } from "@/lib/workos/scan";
 import { campaignToCard } from "@/lib/view";
-import { readRoadmapTasks } from "@/lib/roadmap-tasks";
+import { readRoadmapTasks, type PhaseTasks } from "@/lib/roadmap-tasks";
 import { TaskChecklist } from "@/components/TaskChecklist";
+import { FreshnessProbe } from "@/components/FreshnessProbe";
+import { RemoteImage } from "@/components/RemoteImage";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-function Img({ src }: { src: string }) {
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img className="ph" src={src} alt="" />;
-}
-
 const STATUS_LABEL: Record<string, string> = { done: "Done", active: "Active", todo: "To do" };
 const STATUS_MARK: Record<string, string> = { done: "✓", active: "▶", todo: "" };
+
+function PhaseBlock({ relPath, ph }: { relPath: string; ph: PhaseTasks }) {
+  const k = ph.statusKey;
+  return (
+    <div className={`phase-block ${k === "done" ? "done" : ""}`}>
+      <div className="phase-head">
+        <div className={`dot ${k}`}>{STATUS_MARK[k]}</div>
+        <div style={{ flex: 1 }}>
+          <div className="phase-t">{ph.name}</div>
+          <div className="phase-m">
+            <span className={`st ${k}`}>{STATUS_LABEL[k]}</span>
+            {ph.total > 0 && <span>{ph.doneCount}/{ph.total} done</span>}
+          </div>
+        </div>
+      </div>
+      {ph.tasks.length > 0 && (
+        <div className="phase-tasks">
+          <TaskChecklist relPath={relPath} tasks={ph.tasks} />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default async function ProjectPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -34,26 +54,33 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
 
   return (
     <>
-      <div className="topbar">
-        <Link href="/" className="brand">Tracker<span className="dot">.</span></Link>
-        <span className="crumb">›</span>
-        <Link href="/" className="back">Projects</Link>
-        <span className="crumb">›</span>
-        <span className="crumb"><b>{c.name}</b></span>
-      </div>
+      <FreshnessProbe />
+      <header className="topbar">
+        <Link href="/" className="brand">WorkOS Dashboard<span className="brand-dot">.</span></Link>
+        <nav aria-label="Breadcrumb" style={{ display: "contents" }}>
+          <span className="crumb" aria-hidden="true">›</span>
+          <Link href="/" className="back">Projects</Link>
+          <span className="crumb" aria-hidden="true">›</span>
+          <span className="crumb"><b>{c.name}</b></span>
+        </nav>
+      </header>
 
-      <main className="detail">
+      <main className="detail" id="main">
         <div className="wrap">
           <div className="d-hero imgwrap" style={{ background: `linear-gradient(135deg, ${card.accent}, ${card.accent}aa)` }}>
-            <Img src={card.img} />
-            <span className="cap">📷 {card.domain} · {card.parked ? "parked" : card.isLead ? "lead project" : "active"}</span>
+            <RemoteImage src={card.img} sizes="(max-width:880px) 100vw, 1080px" />
+            <span className="cap"><span aria-hidden="true">📷</span> {card.domain} · {card.status ?? (card.isLead ? "most important" : "active")}</span>
           </div>
 
           <div className="d-grid">
             <div>
               <h1 className="d-title">{c.name}</h1>
               <div className="d-sub">
-                {[c.type, card.isLead ? "Lead product" : null, card.parked ? "Parked" : null].filter(Boolean).join(" · ")}
+                {[
+                  card.priority ? `P${card.priority}` : null,
+                  card.status ?? c.type,
+                  card.isLead ? "★ Urgent + Important" : null,
+                ].filter(Boolean).join(" · ")}
               </div>
 
               {p.goal && (
@@ -66,29 +93,23 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
               <h3 className="sec-h">Roadmap{rt && rt.total ? ` · ${rt.done}/${rt.total} tasks` : ""}</h3>
               <div className="write-note">✏️ Ticking a box writes straight back to <code>roadmap.md</code> in your vault (lock-safe).</div>
 
-              {rt && rt.phases.length ? (
-                rt.phases.map((ph, i) => {
-                  const k = ph.statusKey;
-                  return (
-                    <div className={`phase-block ${k === "done" ? "done" : ""}`} key={i}>
-                      <div className="phase-head">
-                        <div className={`dot ${k}`}>{STATUS_MARK[k]}</div>
-                        <div style={{ flex: 1 }}>
-                          <div className="phase-t">{ph.name}</div>
-                          <div className="phase-m">
-                            <span className={`st ${k}`}>{STATUS_LABEL[k]}</span>
-                            {ph.total > 0 && <span>{ph.doneCount}/{ph.total} done</span>}
-                          </div>
-                        </div>
+              {rt && (rt.subProjects?.length || rt.phases.length) ? (
+                rt.subProjects?.length ? (
+                  rt.subProjects.map((sp, i) => (
+                    <div className={`subproject-block ${sp.statusKey === "done" ? "done" : ""}`} key={i}>
+                      <div className="subproject-head">
+                        <span className="subproject-t">{sp.name}</span>
+                        <span className={`st ${sp.statusKey}`}>{STATUS_LABEL[sp.statusKey]}</span>
+                        {sp.total > 0 && <span className="subproject-m">{sp.doneCount}/{sp.total} tasks</span>}
                       </div>
-                      {ph.tasks.length > 0 && (
-                        <div className="phase-tasks">
-                          <TaskChecklist relPath={rt.relPath} tasks={ph.tasks} />
-                        </div>
-                      )}
+                      {sp.phases.map((ph, j) => (
+                        <PhaseBlock relPath={rt.relPath} ph={ph} key={j} />
+                      ))}
                     </div>
-                  );
-                })
+                  ))
+                ) : (
+                  rt.phases.map((ph, i) => <PhaseBlock relPath={rt.relPath} ph={ph} key={i} />)
+                )
               ) : (
                 <div className="empty"><div className="e">🗺️</div>No <code>roadmap.md</code> phases found for this project.</div>
               )}

@@ -7,9 +7,9 @@ import { findTodoLine } from "@/lib/workos/anchors";
 import { appendJournal } from "@/lib/workos/sidecar";
 
 /**
- * Toggle one checkbox ("chunk task") in any vault markdown file — roadmap.md,
- * todos.md, etc. Lock-safe and coexistence-safe with other writers (Obsidian,
- * AI agents, the old Sovereign app):
+ * Toggle one checkbox (a roadmap/todo task) in any vault markdown file —
+ * roadmap.md, todos.md, etc. Lock-safe and coexistence-safe with other writers
+ * (Obsidian, AI agents, any other consumer of the WorkOS standard):
  *  - per-file advisory lock,
  *  - re-reads fresh and resolves the target by ANCHOR (raw text) when given,
  *    falling back to the render-time lineNumber,
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
         writeVaultLinesCAS(abs, f.lines, detectEol(f.raw), { mtimeMs: f.mtimeMs, hash: f.hash });
         appendJournal({
           tsISO: new Date().toISOString(),
-          owner: "tracker",
+          owner: "workos-dashboard",
           relPath: toRel(abs),
           op: "toggleTask",
           before,

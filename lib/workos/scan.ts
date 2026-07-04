@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  DIRS,
   PARA,
   ROOT_FILES,
   getVaultRoot,
@@ -10,9 +9,7 @@ import {
 } from "./paths";
 import { safeRead } from "./reader";
 import type {
-  Bounty,
   Campaign,
-  Goal,
   GreatSiege,
   Habit,
   HabitLogEntry,
@@ -22,15 +19,18 @@ import type {
 } from "./types";
 import { parseRoadmap, phaseProgress } from "./parsers/roadmap";
 import { parseTodos } from "./parsers/todos";
-import { parseLog } from "./parsers/log";
 import { parseNow } from "./parsers/now";
-import { parseHot } from "./parsers/hot";
 import { parseHabits } from "./parsers/habits";
-import { parseGoals } from "./parsers/goals";
 import { parseHabitLog } from "./parsers/habitlog";
-import { detectLead, isParked, parseProject, projectType } from "./parsers/project";
-import { daysUntil, slugify, todayISO } from "./parsers/util";
-import { domainForName } from "./domains";
+import { parseVision } from "./parsers/vision";
+import {
+  detectLead,
+  eisenhowerRank,
+  parseProject,
+  priorityOf,
+  projectType,
+} from "./parsers/project";
+import { daysUntil, todayISO } from "./parsers/util";
 
 // --- small fs helpers ---------------------------------------------------------
 
@@ -97,28 +97,14 @@ function maxMtime(...mtimes: (number | undefined)[]): number {
   return mtimes.reduce<number>((m, v) => (v && v > m ? v : m), 0);
 }
 
-/** Dated filenames (YYYY-MM-DD.md) in a directory, e.g. Daily_Notes. */
-function listDatedNotes(absDir: string): string[] {
-  try {
-    return fs
-      .readdirSync(absDir, { withFileTypes: true })
-      .filter((d) => d.isFile())
-      .map((d) => d.name.match(/^(\d{4}-\d{2}-\d{2})\.md$/i)?.[1])
-      .filter((d): d is string => Boolean(d))
-      .sort();
-  } catch {
-    return [];
-  }
-}
-
 // --- campaigns (projects) -----------------------------------------------------
 
 export function listCampaignSlugs(): string[] {
-  return listDirs(resolveInVault(PARA.projectsActive));
+  return listDirs(resolveInVault(PARA.projects));
 }
 
 export function buildCampaign(slug: string): (Campaign & { _mtime: number }) | null {
-  const dir = resolveInVault(`${PARA.projectsActive}/${slug}`);
+  const dir = resolveInVault(`${PARA.projects}/${slug}`);
   if (!fs.existsSync(dir)) return null;
 
   const claude = safeRead(path.join(dir, "CLAUDE.md"));
@@ -200,12 +186,7 @@ function deriveGreatSiege(campaigns: Campaign[]): GreatSiege | undefined {
   if (dated.length === 0) return undefined;
 
   const next = dated.find((d) => d.days >= 0) ?? dated[0];
-  return {
-    label: next.name,
-    date: next.date,
-    daysLeft: next.days,
-    weeksLeft: Math.round(next.days / 7),
-  };
+  return { label: next.name, date: next.date, daysLeft: next.days };
 }
 
 export function scanRealm(): RealmModel {
@@ -214,11 +195,15 @@ export function scanRealm(): RealmModel {
   const campaigns = listCampaignSlugs()
     .map(buildCampaign)
     .filter((c): c is Campaign & { _mtime: number } => c !== null)
-    // priority band (lead → active → parked), then nearest deadline, then name
+    // Eisenhower placement: quadrant band first (U+I → U → I → neither), then
+    // Priority (P1..P5) within the band, then nearest deadline, then name.
     .sort((a, b) => {
-      const band = (c: Campaign) =>
-        c.isLead ? 0 : isParked(c.project) ? 2 : 1;
-      if (band(a) !== band(b)) return band(a) - band(b);
+      const ra = eisenhowerRank(a.project);
+      const rb = eisenhowerRank(b.project);
+      if (ra !== rb) return ra - rb;
+      const pa = priorityOf(a.project);
+      const pb = priorityOf(b.project);
+      if (pa !== pb) return pa - pb;
       const ad = a.project.hardDeadlineDate ?? "9999";
       const bd = b.project.hardDeadlineDate ?? "9999";
       if (ad !== bd) return ad.localeCompare(bd);
@@ -231,28 +216,13 @@ export function scanRealm(): RealmModel {
     .sort((a, b) => b.openQuestCount - a.openQuestCount || a.name.localeCompare(b.name));
 
   const nowRead = safeRead(path.join(root, ROOT_FILES.now));
-  const logRead = safeRead(path.join(root, ROOT_FILES.log));
-  const hotRead = safeRead(path.join(root, ROOT_FILES.hot));
-
   const now = nowRead ? parseNow(nowRead.lines) : undefined;
-  const allLog = logRead ? parseLog(logRead.lines, 9999) : [];
-  const recentLog = allLog.slice(0, 8);
-  const hot = hotRead ? parseHot(hotRead.lines, hotRead.mtimeMs) : undefined;
-
-  // hot.md is "stale" if any tracked content file is newer than it.
-  const newestContent = maxMtime(
-    nowRead?.mtimeMs,
-    logRead?.mtimeMs,
-    ...campaigns.map((c) => c._mtime),
-    ...provinces.map((p) => p._mtime),
-  );
-  const hotStale = hot ? newestContent > hot.mtimeMs + 1000 : false;
 
   const inboxCount = countMd(resolveInVault(PARA.inbox), true);
   const resourceCount = countMd(resolveInVault(PARA.resources), true);
   const archiveCount = countMd(resolveInVault(PARA.archive), true);
 
-  // --- v2 engagement layer (habits, goals, bounties, streak signals) ---------
+  // Habits read live from habits.md + the append-only habits-log.md.
   const habitsRead = safeRead(path.join(root, ROOT_FILES.habits));
   const habits: Habit[] = habitsRead
     ? parseHabits(habitsRead.lines, habitsRead.relPath).habits
@@ -263,57 +233,23 @@ export function scanRealm(): RealmModel {
     ? parseHabitLog(habitLogRead.lines)
     : [];
 
-  // Per-area goals.md + standing triggers (bounties) from province todos.
-  const goals: Goal[] = [];
-  const bounties: Bounty[] = [];
-  for (const p of provinces) {
-    const dom = domainForName(p.name);
-    const goalsRead = safeRead(path.join(p.dir, "goals.md"));
-    if (goalsRead) {
-      goals.push(...parseGoals(goalsRead.lines, goalsRead.relPath, dom).goals);
-    }
-    for (const section of p.todos?.sections ?? []) {
-      if (!/trigger|bounty/i.test(section.heading)) continue;
-      for (const note of section.notes) {
-        bounties.push({
-          id: slugify(`${p.slug}-${note.text}`),
-          condition: note.text,
-          domain: dom,
-          sourceRelPath: p.todosRelPath ?? p.relDir,
-        });
-      }
-    }
-  }
-
-  const dailyDates = listDatedNotes(resolveInVault(DIRS.dailyNotes));
-  const today = todayISO();
-  const dailyNoteToday = dailyDates.includes(today);
-  const activityDates = [
-    ...new Set([...allLog.map((e) => e.date), ...dailyDates]),
-  ];
+  // Annual goals horizon (root VISION.md) — undefined if the vault has no file.
+  const visionRead = safeRead(path.join(root, ROOT_FILES.vision));
+  const vision = visionRead ? parseVision(visionRead.lines, visionRead.relPath) : undefined;
 
   return {
     campaigns: campaigns.map(stripInternal),
     provinces: provinces.map(stripInternal),
     now,
-    hot,
-    recentLog,
-    logEntryCount: allLog.length,
     inboxCount,
     resourceCount,
     archiveCount,
     greatSiege: deriveGreatSiege(campaigns),
-    hotStale,
     scannedAtISO: new Date().toISOString(),
-    vaultRoot: root,
     habits,
     habitLog,
-    goals,
-    bounties,
-    habitsLogRelPath: ROOT_FILES.habitsLog,
-    todayISO: today,
-    dailyNoteToday,
-    activityDates,
+    vision,
+    todayISO: todayISO(),
   };
 }
 

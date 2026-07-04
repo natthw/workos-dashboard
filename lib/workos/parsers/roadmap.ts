@@ -12,10 +12,19 @@ import { classifyStatus, daysUntil, extractISODate } from "./util";
  *   Target: 2026-06-20
  *   Status: Active
  */
+/** A `## Sub-Project N — …` (standard) or legacy `## Chunk N · …` heading. */
+const SUBPROJECT_RE = /^##\s+(?:sub-?project|chunk)\b/i;
+
 export function parseRoadmap(lines: string[]): Roadmap {
   const phases: RoadmapPhase[] = [];
   let title: string | undefined;
   let cur: RoadmapPhase | null = null;
+
+  // In hierarchical roadmaps (## Sub-Project → ### Phase) a phase is an H3; in
+  // flat roadmaps a phase is an H2. Detect the mode once so phase counts (the
+  // card's fallback when there are no checkbox tasks) stay correct either way.
+  const hierarchical = lines.some((ln) => SUBPROJECT_RE.test(ln));
+  const phaseHeadingRe = hierarchical ? /^###\s+(.+?)\s*$/ : /^##\s+(.+?)\s*$/;
 
   lines.forEach((line, i) => {
     const h1 = line.match(/^#\s+(.+?)\s*$/);
@@ -23,7 +32,7 @@ export function parseRoadmap(lines: string[]): Roadmap {
       title = h1[1].replace(/^Roadmap:\s*/i, "").trim();
       return;
     }
-    const h2 = line.match(/^##\s+(.+?)\s*$/);
+    const h2 = line.match(phaseHeadingRe);
     if (h2) {
       if (cur) phases.push(cur);
       const name = h2[1].trim();

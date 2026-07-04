@@ -46,18 +46,24 @@ export interface TodosDoc {
   doneCount: number;
 }
 
-export interface LogEntry {
-  date: string; // YYYY-MM-DD
-  focus: string; // e.g. "decision"
-  title: string;
-  body: string;
-}
-
 export interface NowDoc {
   focus?: string;
   nextActions: string[];
   waiting: string[];
   someday: string[];
+}
+
+/**
+ * The `## Eisenhower` block (the WorkOS standard's project-priority contract):
+ *   Priority: P1   Urgent: yes   Important: yes   Status: active
+ * Urgent/Important pick the quadrant + display band; Priority (1=P1..5=P5) orders
+ * within it; Status is the work-state, separate from the band.
+ */
+export interface Eisenhower {
+  priority?: number; // 1..5 (P1 = highest)
+  urgent?: boolean;
+  important?: boolean;
+  status?: string; // lowercased: active | parked | someday | closing-out | done
 }
 
 export interface ProjectInfo {
@@ -70,16 +76,8 @@ export interface ProjectInfo {
   techStack?: string;
   lastSession?: string;
   decisionLog?: string;
+  eisenhower?: Eisenhower;
   sections: Record<string, string>;
-}
-
-export interface HotDoc {
-  lastUpdated?: string;
-  currentState?: string;
-  projectStates?: string;
-  openDecisions?: string;
-  activeThreads?: string;
-  mtimeMs: number;
 }
 
 export interface VaultFileRef {
@@ -119,16 +117,16 @@ export interface Province {
   relDir: string;
 }
 
+/** The nearest dated project deadline across the realm (drives the top-bar pill). */
 export interface GreatSiege {
   label: string;
   date: string; // ISO
   daysLeft: number;
-  weeksLeft: number;
 }
 
-// --- Gamification v2: domains, habits, goals, bosses, streaks ----------------
+// --- domains & habits --------------------------------------------------------
 
-/** The five fronts of the empire. Every XP source maps to exactly one. */
+/** The five life areas. Every project/area/habit maps to exactly one. */
 export type DomainKey = "career" | "invest" | "health" | "learning" | "personal";
 
 /** How often a recurring habit is due. */
@@ -143,20 +141,12 @@ export interface Habit {
   label: string; // "Japanese study"
   cadence: Cadence;
   domain: DomainKey;
-  xp: number; // awarded per completion
+  xp: number; // declared per-completion weight (kept for fidelity with habits.md)
   sourceRelPath: string; // where it's declared (habits.md)
+  detail?: string[]; // how-to-implement lines (indented bullets under the habit in habits.md)
 }
 export interface HabitsDoc {
   habits: Habit[];
-}
-
-/** A habit projected onto "today", with completion + streak state. */
-export interface HabitToday extends Habit {
-  dueToday: boolean;
-  doneToday: boolean;
-  logRelPath: string; // append target — canonical: habits-log.md
-  weekProgress?: { done: number; need: number }; // for xPerWeek ("2/3")
-  cadenceLabel: string; // human-readable cadence ("Mon", "daily", "2×/wk")
 }
 
 export interface HabitLogEntry {
@@ -164,96 +154,48 @@ export interface HabitLogEntry {
   habitId: string;
 }
 
-export interface StreakInfo {
-  scope: "overall" | string; // habit id or "overall"
-  current: number;
-  best: number;
-  atRisk: boolean; // current>0 && nothing logged today
-  lastDate?: string; // ISO of last active day
-}
+// --- vision (the annual goals horizon, from root VISION.md) -------------------
 
-export interface Goal {
-  id: string;
-  label: string; // "Body weight"
-  start: number; // 64
-  current: number; // 66.6
-  target: number; // 70
-  unit: string; // "kg"
-  deadlineISO?: string;
+export type VisionGoalKind = "metric" | "milestone";
+
+/** One line from VISION.md: a measurable outcome (metric) or a yes/no (milestone). */
+export interface VisionGoal {
+  label: string;
   domain: DomainKey;
-  sourceRelPath: string;
-  pct: number; // clamp01((current-start)/(target-start))*100
-}
-export interface GoalsDoc {
-  goals: Goal[];
-}
-
-export interface Boss {
-  id: string;
-  title: string;
-  kind: "goal" | "deadline" | "combined";
-  domain: DomainKey;
-  progressPct?: number; // 0..100
-  deadlineISO?: string;
-  daysLeft?: number;
-  state: "active" | "looming" | "defeated" | "breached";
-  href?: string; // campaign/zone link
-  detail?: string;
+  kind: VisionGoalKind;
+  // metric: start → current → target unit
+  start?: number;
+  current?: number; // manual current; the view derives it from a linked project instead
+  target?: number;
+  unit?: string;
+  // milestone
+  statusKey?: StatusKey;
+  // shared
+  date?: string; // ISO target date ("by …")
+  projectSlug?: string; // [[slug]] link to a campaign; progress derives from its roadmap
+  sourceRelPath: string; // VISION.md, relative to vault root
+  lineNumber: number; // 0-based, reserved for future write-back
 }
 
-export interface Bounty {
-  id: string;
-  condition: string;
-  domain: DomainKey;
-  sourceRelPath: string;
-}
-
-export interface HoldingsData {
-  generated?: string;
-  byCurrency: { ccy: string; totalCost: number; dividends: number }[];
-  positions: number;
-  markets: number;
-  recentDividends: { symbol: string; amount: number; ccy: string; date: string }[];
-  byMarket: { market: string; weight: number; count: number }[]; // weight 0..1
-  transactionCount?: number;
-  milestones: { id: string; label: string; crossed: boolean; date?: string }[];
-}
-
-export interface DomainProgress {
-  domain: DomainKey;
-  title: string; // "The Barracks"
-  zoneTitle2: string; // "Quartermaster of the Body"
-  xp: number;
-  level: number;
-  levelTitle: string;
-  pctToNext: number;
-  xpIntoLevel: number;
-  xpForNextLevel: number;
-  momentum: number;
-  attention?: string; // nudge text for realm-map badge
+export interface VisionDoc {
+  year?: number; // from "# Vision 2026"
+  tagline?: string; // from a leading "> …" blockquote
+  goals: VisionGoal[];
 }
 
 export interface RealmModel {
   campaigns: Campaign[];
   provinces: Province[];
   now?: NowDoc;
-  hot?: HotDoc;
-  recentLog: LogEntry[];
-  logEntryCount: number;
   inboxCount: number;
   resourceCount: number;
   archiveCount: number;
   greatSiege?: GreatSiege;
-  hotStale: boolean;
   scannedAtISO: string;
-  vaultRoot: string;
-  // v2 additions (all derived from durable vault state + append-only logs)
+  // habits read live from habits.md + the append-only habits-log.md
   habits: Habit[];
   habitLog: HabitLogEntry[];
-  goals: Goal[];
-  bounties: Bounty[];
-  habitsLogRelPath: string; // canonical append target for completions
+  // annual goals horizon, read live from root VISION.md (undefined if absent)
+  vision?: VisionDoc;
   todayISO: string; // server "today" (local), for client/server agreement
-  dailyNoteToday: boolean; // a Daily_Notes/<today>.md exists
-  activityDates: string[]; // dated signals (log.md + daily notes) for streaks
 }

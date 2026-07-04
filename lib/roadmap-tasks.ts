@@ -1,4 +1,12 @@
-// Parse a roadmap.md into phases, each with its checkbox "chunk tasks".
+// Parse a roadmap.md into its task hierarchy, in one of two shapes:
+//
+//   Flat (backward-compatible):   ## Phase N — …  →  tasks
+//   Hierarchical (the standard):  ## Sub-Project N — …  →  ### Phase N — …  →  tasks
+//
+// The dashboard picks hierarchical mode automatically when a `## Sub-Project`
+// (or legacy `## Chunk`) heading is present; otherwise it falls back to the flat
+// `## Phase` reading every existing project already uses.
+//
 // Line numbers are 0-based (for lock-safe write-back); `raw` is the exact text
 // after the checkbox (the anchor findTodoLine matches on); `text` is cleaned for display.
 
@@ -22,9 +30,19 @@ export interface PhaseTasks {
   total: number;
 }
 
+export interface SubProjectTasks {
+  name: string;          // full heading text after "## "
+  statusKey: PhaseStatus;
+  lineNumber: number;
+  phases: PhaseTasks[];
+  doneCount: number;     // summed across this sub-project's phases
+  total: number;
+}
+
 export interface RoadmapTasks {
   relPath: string;
-  phases: PhaseTasks[];
+  phases: PhaseTasks[];               // ALWAYS the flat list of every phase (card math stays simple)
+  subProjects?: SubProjectTasks[];    // present only in hierarchical mode
   total: number;
   done: number;
 }
@@ -40,6 +58,15 @@ function clean(t: string): string {
   return t.replace(/\*\*/g, "").replace(/`/g, "").replace(/\s+/g, " ").trim();
 }
 
+/** A `## Sub-Project N — …` (standard) or legacy `## Chunk N · …` heading. */
+const SUBPROJECT_RE = /^##\s+(?:sub-?project|chunk)\b/i;
+
+function rollupPhase(p: PhaseTasks): void {
+  p.total = p.tasks.length;
+  p.doneCount = p.tasks.filter((t) => t.checked).length;
+}
+
+/** Flat mode: every `##` heading is a phase; `###` is ignored (its tasks roll up). */
 export function parsePhaseTasks(lines: string[]): PhaseTasks[] {
   const phases: PhaseTasks[] = [];
   let cur: PhaseTasks | null = null;
@@ -69,11 +96,75 @@ export function parsePhaseTasks(lines: string[]): PhaseTasks[] {
     }
   });
 
-  for (const p of phases) {
-    p.total = p.tasks.length;
-    p.doneCount = p.tasks.filter((t) => t.checked).length;
-  }
+  for (const p of phases) rollupPhase(p);
   return phases;
+}
+
+/**
+ * Hierarchical mode: `## Sub-Project` groups, `### Phase` phases, tasks beneath.
+ * A `Status:` line attaches to whichever is current (phase if one is open under
+ * the sub-project, else the sub-project). Tasks or a `###` appearing before any
+ * sub-project/phase lazily create a synthetic container so nothing is dropped.
+ */
+export function parseSubProjects(lines: string[]): SubProjectTasks[] {
+  const subs: SubProjectTasks[] = [];
+  let curSub: SubProjectTasks | null = null;
+  let curPhase: PhaseTasks | null = null;
+  let inFence = false;
+
+  const ensureSub = (name: string, line: number): SubProjectTasks => {
+    const s: SubProjectTasks = { name, statusKey: "todo", lineNumber: line, phases: [], doneCount: 0, total: 0 };
+    subs.push(s);
+    return s;
+  };
+  const ensurePhase = (name: string, line: number): PhaseTasks => {
+    if (!curSub) curSub = ensureSub("General", line);
+    const p: PhaseTasks = { name, statusKey: "todo", lineNumber: line, tasks: [], doneCount: 0, total: 0 };
+    curSub.phases.push(p);
+    return p;
+  };
+
+  lines.forEach((ln, i) => {
+    if (/^\s*```/.test(ln)) { inFence = !inFence; return; }
+    if (inFence) return;
+
+    if (SUBPROJECT_RE.test(ln)) {
+      const name = ln.replace(/^##\s+/, "").trim();
+      curSub = ensureSub(name, i);
+      curPhase = null;
+      return;
+    }
+    // Any other `## …` in hierarchical mode is a meta/note section (e.g. Architecture):
+    // close the current phase so stray status/tasks don't bleed into a real phase.
+    const h2 = ln.match(/^##\s+(.+?)\s*$/);
+    if (h2) { curPhase = null; return; }
+
+    const h3 = ln.match(/^###\s+(.+?)\s*$/);
+    if (h3) { curPhase = ensurePhase(h3[1].trim(), i); return; }
+
+    const st = ln.match(/^\s*Status\s*:\s*(.+?)\s*$/i);
+    if (st) {
+      if (curPhase) curPhase.statusKey = statusKeyOf(st[1]);
+      else if (curSub) curSub.statusKey = statusKeyOf(st[1]);
+      return;
+    }
+
+    const cb = ln.match(/^(\s*[-*]\s+)\[([ xX])\]\s*(.*)$/);
+    if (cb) {
+      if (!curPhase) curPhase = ensurePhase("Tasks", i);
+      const checked = cb[2].toLowerCase() === "x";
+      curPhase.tasks.push({ text: clean(cb[3]), raw: cb[3].trim(), checked, lineNumber: i });
+    }
+  });
+
+  for (const s of subs) {
+    for (const p of s.phases) rollupPhase(p);
+    s.total = s.phases.reduce((a, p) => a + p.total, 0);
+    s.doneCount = s.phases.reduce((a, p) => a + p.doneCount, 0);
+    // A sub-project with no explicit Status: inherits "done" only if it has tasks and all are done.
+    if (s.statusKey === "todo" && s.total > 0 && s.doneCount === s.total) s.statusKey = "done";
+  }
+  return subs;
 }
 
 export function readRoadmapTasks(
@@ -83,6 +174,16 @@ export function readRoadmapTasks(
   if (!absPath || !relPath) return null;
   try {
     const f = readVaultFile(absPath);
+    const hierarchical = f.lines.some((ln) => SUBPROJECT_RE.test(ln));
+
+    if (hierarchical) {
+      const subProjects = parseSubProjects(f.lines);
+      const phases = subProjects.flatMap((s) => s.phases);
+      const total = phases.reduce((a, p) => a + p.total, 0);
+      const done = phases.reduce((a, p) => a + p.doneCount, 0);
+      return { relPath, phases, subProjects, total, done };
+    }
+
     const phases = parsePhaseTasks(f.lines);
     const total = phases.reduce((a, p) => a + p.total, 0);
     const done = phases.reduce((a, p) => a + p.doneCount, 0);
