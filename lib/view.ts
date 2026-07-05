@@ -1,9 +1,9 @@
 // Maps the WorkOS RealmModel (from lib/workos/scan) into a calm, serializable
-// view-model the Tracker UI renders. Runs server-side; result is passed to client.
+// view-model the WorkOS Dashboard UI renders. Runs server-side; passed to client.
 
-import type { RealmModel, Campaign, DomainKey, Cadence } from "@/lib/workos/types";
+import type { RealmModel, Campaign, DomainKey, Cadence, StatusKey, VisionDoc } from "@/lib/workos/types";
 import { isParked } from "@/lib/workos/parsers/project";
-import { domainForName } from "@/lib/workos/domains";
+import { domainForName, DOMAIN_ORDER } from "@/lib/workos/domains";
 
 const DOMAIN_ACCENT: Record<DomainKey, string> = {
   career: "#3a5a8c",
@@ -27,9 +27,9 @@ const DOMAIN_IMG: Record<DomainKey, string> = {
 
 // Per-project overrides (closest verified match to each project's theme).
 const PROJECT_IMG: Record<string, string> = {
-  Thai_Portfolio_Tracker: UN("1517180102446-f3ece451e9d8"),    // a portfolio dashboard on screen
+  Portfolio_Management_System: UN("1517180102446-f3ece451e9d8"), // a portfolio dashboard on screen
   Wealth_Land: UN("1518770660439-4636190af475"),               // abstract tech (gamified engine)
-  LSEG_Soiree_Cocktail_Booth: UN("1455390582262-044cdead277a"),// event planning notebook
+  LSEG_Soiree_Cocktail_Booth: UN("1509669803555-fd5edd8d5a41"),// bartender shaking a cocktail shaker
   Cosmic_Capsule_Voyage: UN("1543783207-ec64e4d95325"),        // a voyage
 };
 
@@ -47,6 +47,8 @@ export interface ProjectCard {
   unit: "task" | "phase";
   isLead: boolean;
   parked: boolean;
+  priority?: number; // P1..P5 from the Eisenhower block (undefined if absent)
+  status?: string; // work-state: active | parked | someday | closing-out | done
   deadline?: string;
   daysLeft?: number;
   currentPhase?: string;
@@ -66,18 +68,6 @@ export interface AreaView {
   openCount: number;
 }
 
-export interface GoalView {
-  label: string;
-  start: number;
-  current: number;
-  target: number;
-  unit: string;
-  pct: number;
-  deadline?: string;
-  domain: DomainKey;
-  accent: string;
-}
-
 export interface HabitView {
   label: string;
   cadence: string;
@@ -85,6 +75,8 @@ export interface HabitView {
   accent: string;
   doneToday: boolean;
   keystone: boolean;
+  detail: string[];
+  sourceRelPath: string;
 }
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -98,17 +90,147 @@ function cadenceLabel(c: Cadence): string {
   }
 }
 
+/** One rendered goal in the Vision band: a metric bar or a milestone chip. */
+export interface VisionGoalView {
+  label: string;
+  domain: DomainKey;
+  accent: string;
+  kind: "metric" | "milestone";
+  pct?: number; // metric / linked: bar fill
+  valueLabel?: string; // "12 / 100 hrs" or "60%"
+  statusKey?: StatusKey; // milestone: drives the chip
+  statusLabel?: string; // "active" / "not started" / "done"
+  linkSlug?: string; // resolved campaign slug (progress derived from it)
+  source?: "derived" | "manual"; // where the number comes from (note line)
+  date?: string; // ISO target date
+}
+
+export interface VisionDomainGroup {
+  domain: DomainKey;
+  accent: string;
+  goals: VisionGoalView[]; // empty → the domain is dormant (no goal this year)
+  aggPct: number; // domain momentum: mean goal progress (milestone done/active/todo = 100/50/0)
+  goalCount: number;
+}
+
+export interface VisionView {
+  year?: number;
+  tagline?: string;
+  domains: VisionDomainGroup[]; // all five in DOMAIN_ORDER, dormant ones included
+  activeDomainCount: number;
+  totalDomainCount: number;
+}
+
 export interface DashView {
   now: NowView;
   projects: ProjectCard[];
   areas: AreaView[];
-  goals: GoalView[];
   habits: HabitView[];
-  hotStale: boolean;
+  vision?: VisionView;
   deadline?: { label: string; date: string; daysLeft: number };
   counts: { inbox: number; resources: number; archive: number };
   scannedAt: string;
   vaultName: string;
+}
+
+function clampPct(n: number): number {
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function statusLabelOf(k: StatusKey): string {
+  switch (k) {
+    case "done": return "done";
+    case "active": return "active";
+    case "todo": return "not started";
+    default: return "planned";
+  }
+}
+
+/** A goal's progress as a single number (milestone done/active/todo → 100/50/0). */
+function goalPct(g: VisionGoalView): number {
+  if (g.kind === "milestone") {
+    return g.statusKey === "done" ? 100 : g.statusKey === "active" ? 50 : 0;
+  }
+  return g.pct ?? 0;
+}
+
+/** Normalize a slug/name for tolerant [[link]] → campaign matching. */
+function slugKey(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/**
+ * Map VISION.md → a band grouped by the five domains. A goal that links a project
+ * ([[slug]]) takes that project's roadmap % as its progress (always honest, never
+ * typed); a numeric metric computes (current-start)/(target-start); a milestone
+ * renders a status chip. Every domain is present so dormant ones (no goal) show.
+ */
+export function toVisionView(
+  vision: VisionDoc | undefined,
+  campaigns: Campaign[],
+  tasksBySlug: Record<string, { done: number; total: number }>,
+): VisionView | undefined {
+  if (!vision) return undefined;
+
+  const bySlug = new Map<string, Campaign>();
+  for (const c of campaigns) bySlug.set(slugKey(c.slug), c);
+
+  const groups: VisionDomainGroup[] = DOMAIN_ORDER.map((domain) => ({
+    domain,
+    accent: DOMAIN_ACCENT[domain],
+    goals: [],
+    aggPct: 0,
+    goalCount: 0,
+  }));
+  const byDomain = new Map(groups.map((g) => [g.domain, g]));
+
+  for (const g of vision.goals) {
+    const accent = DOMAIN_ACCENT[g.domain];
+    const camp = g.projectSlug ? bySlug.get(slugKey(g.projectSlug)) : undefined;
+    let gv: VisionGoalView;
+
+    if (camp) {
+      const prog = progressFor(camp.phaseProgress, tasksBySlug[camp.slug]);
+      gv = {
+        label: g.label, domain: g.domain, accent, kind: "metric",
+        pct: prog.pct, valueLabel: `${prog.pct}%`,
+        linkSlug: camp.slug, source: "derived", date: g.date,
+      };
+    } else if (g.kind === "metric" && g.target != null) {
+      const start = g.start ?? 0;
+      const current = g.current ?? start;
+      const denom = g.target - start;
+      const unit = g.unit ? ` ${g.unit}` : "";
+      gv = {
+        label: g.label, domain: g.domain, accent, kind: "metric",
+        pct: denom !== 0 ? clampPct(((current - start) / denom) * 100) : 0,
+        valueLabel: `${current} / ${g.target}${unit}`,
+        source: "manual", date: g.date,
+      };
+    } else {
+      const sk = g.statusKey ?? "todo";
+      gv = {
+        label: g.label, domain: g.domain, accent, kind: "milestone",
+        statusKey: sk, statusLabel: statusLabelOf(sk), date: g.date,
+      };
+    }
+    byDomain.get(g.domain)?.goals.push(gv);
+  }
+
+  for (const grp of groups) {
+    grp.goalCount = grp.goals.length;
+    grp.aggPct = grp.goals.length
+      ? Math.round(grp.goals.reduce((a, gv) => a + goalPct(gv), 0) / grp.goals.length)
+      : 0;
+  }
+
+  return {
+    year: vision.year,
+    tagline: vision.tagline,
+    domains: groups,
+    activeDomainCount: groups.filter((g) => g.goals.length > 0).length,
+    totalDomainCount: groups.length,
+  };
 }
 
 function daysUntilISO(iso?: string): number | undefined {
@@ -164,6 +286,8 @@ export function campaignToCard(c: Campaign, rt?: { done: number; total: number }
     unit: prog.unit,
     isLead: c.isLead,
     parked,
+    priority: c.project.eisenhower?.priority,
+    status: c.project.eisenhower?.status,
     deadline: c.project.hardDeadline,
     daysLeft: daysUntilISO(c.project.hardDeadlineDate),
     currentPhase: c.project.currentPhase,
@@ -183,21 +307,11 @@ export function toDashView(
       someday: realm.now?.someday ?? [],
     },
     projects: realm.campaigns.map((c) => campaignToCard(c, tasksBySlug[c.slug])),
+    vision: toVisionView(realm.vision, realm.campaigns, tasksBySlug),
     areas: realm.provinces.map((p) => ({
       slug: p.slug,
       name: p.name,
       openCount: p.openQuestCount,
-    })),
-    goals: realm.goals.map((g) => ({
-      label: g.label,
-      start: g.start,
-      current: g.current,
-      target: g.target,
-      unit: g.unit,
-      pct: Math.round(g.pct),
-      deadline: g.deadlineISO,
-      domain: g.domain,
-      accent: DOMAIN_ACCENT[g.domain],
     })),
     habits: (() => {
       const today = realm.todayISO;
@@ -209,9 +323,10 @@ export function toDashView(
         accent: DOMAIN_ACCENT[h.domain],
         doneToday: doneToday.has(h.id),
         keystone: /sleep/i.test(h.label),
+        detail: h.detail ?? [],
+        sourceRelPath: h.sourceRelPath,
       }));
     })(),
-    hotStale: realm.hotStale,
     deadline: realm.greatSiege
       ? { label: realm.greatSiege.label, date: realm.greatSiege.date, daysLeft: realm.greatSiege.daysLeft }
       : undefined,

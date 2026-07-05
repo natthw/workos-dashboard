@@ -16,7 +16,10 @@ export function getVaultRoot(): string {
 /** PARA + root-file layout the scanner knows about. */
 export const PARA = {
   inbox: "00_Inbox",
-  projectsActive: "01_Projects/_active",
+  // Projects live FLAT here — the `_active/` / `_archive/` split was removed from
+  // the WorkOS standard 2026-06-30; completed/paused-forever projects move to
+  // `04_Archive/`. Each child dir under `01_Projects/` is one project slug.
+  projects: "01_Projects",
   areas: "02_Areas",
   resources: "03_Resources",
   archive: "04_Archive",
@@ -29,6 +32,7 @@ export const ROOT_FILES = {
   claude: "CLAUDE.md",
   habits: "habits.md",
   habitsLog: "habits-log.md",
+  vision: "VISION.md",
 } as const;
 
 /** Sub-directories the v2 engagement loop reads/appends to. */

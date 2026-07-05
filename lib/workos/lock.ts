@@ -5,8 +5,9 @@ import { assertInsideVault } from "./paths";
  * Advisory, cooperative, per-file lease lock for the WorkOS vault.
  *
  * The dashboard wraps every write in `withVaultLock`; an LLM agent editing the
- * same files honors the same lock per the contract in the vault `CLAUDE.md`
- * (see docs/imperium/03-agent-coordination.md). The lease self-expires (TTL) so
+ * same files honors the same lock per the WorkOS standard in the vault `CLAUDE.md`.
+ * The lock file name (`.workos.lock`) is part of that standard so any consumer
+ * coordinates through it. The lease self-expires (TTL) so
  * a crashed holder never deadlocks — the next writer steals a stale lock.
  *
  * The lock file lives next to its target inside the vault so a *local* agent can
@@ -25,7 +26,7 @@ interface Lease {
 const DEFAULT_TTL_SECONDS = 120;
 
 function lockPathFor(absPath: string): string {
-  return assertInsideVault(absPath) + ".sovereign.lock";
+  return assertInsideVault(absPath) + ".workos.lock";
 }
 
 function readLease(lockFile: string): Lease | null {

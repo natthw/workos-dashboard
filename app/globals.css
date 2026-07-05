@@ -1,11 +1,10 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap");
 
 :root{
-  --bg:#f4ece0; --paper:#fbf6ee; --ink:#33271d; --ink-soft:#6b5848; --ink-faint:#9a8675;
+  --bg:#f4ece0; --paper:#fbf6ee; --ink:#33271d; --ink-soft:#6b5848; --ink-faint:#7d6a58;
   --line:#e7dac8; --line-soft:#efe5d6;
   --accent:#d2724a; --accent-deep:#b85a35; --gold:#d9a441; --gold-deep:#c4882a; --good:#3a6b4f;
-  --serif:'Spectral',Georgia,serif; --sans:'DM Sans',system-ui,-apple-system,sans-serif;
+  --serif:var(--font-spectral),'Spectral',Georgia,serif; --sans:var(--font-dm-sans),'DM Sans',system-ui,-apple-system,sans-serif;
   --r:16px; --r-sm:10px;
   --sh:0 1px 2px rgba(80,55,35,.04),0 6px 20px rgba(80,55,35,.07); --sh-lg:0 8px 36px rgba(80,55,35,.16);
   /* domain accents */
@@ -21,19 +20,27 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 img{display:block}
 .stripes{background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.05) 0 8px,transparent 8px 16px)}
 
+/* ---- accessibility primitives (focus, skip link, screen-reader text) ---- */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+button:disabled{cursor:default}
+/* light ring on dark / image surfaces so it stays visible */
+.banner :focus-visible,.bold :focus-visible,.focus-hero :focus-visible,.d-hero :focus-visible{outline-color:#fff}
+.skip-link{position:absolute;left:-9999px;top:0;z-index:100;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:0 0 10px 0;font-size:13px;font-weight:600}
+.skip-link:focus{left:0}
+.vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
 @keyframes toastpop{from{opacity:0;transform:translateX(-50%) translateY(14px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 @keyframes crownbob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-4px) rotate(-3deg)}}
 @keyframes crownwiggle{0%,100%{transform:scale(1.28) rotate(0)}25%{transform:scale(1.32) rotate(-12deg)}75%{transform:scale(1.32) rotate(12deg)}}
-@keyframes nudge{0%,100%{transform:translateX(0)}50%{transform:translateX(3px)}}
 @keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
 .imgwrap{position:relative;overflow:hidden}
 .imgwrap > .ph{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 
-.wrap{max-width:1080px;margin:0 auto;padding:0 48px}
-.topbar{max-width:1080px;margin:0 auto;padding:22px 48px 0;display:flex;align-items:center;gap:10px}
-.brand{font-family:var(--serif);font-weight:600;font-size:21px;color:var(--ink);cursor:pointer;letter-spacing:-.02em}
-.brand .dot{color:var(--accent)}
+.wrap{max-width:1600px;margin:0 auto;padding:0 48px}
+.topbar{max-width:1600px;margin:0 auto;padding:22px 48px 0;display:flex;align-items:center;gap:10px}
+.brand{font-family:var(--serif);font-weight:600;font-size:22px;color:var(--ink);cursor:pointer;letter-spacing:-.02em}
+.brand-dot{color:var(--accent)}
 .crumb{color:var(--ink-faint);font-size:14px}
 .crumb b{color:var(--ink-soft);font-weight:500}
 .back{color:var(--ink-soft);font-size:14px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;transition:background .15s}
@@ -44,33 +51,43 @@ img{display:block}
 main{animation:fadeup .35s ease}
 
 /* banner */
-.banner{position:relative;margin:28px 0 8px;border-radius:var(--r);overflow:hidden;min-height:256px;display:flex;box-shadow:var(--sh);background:#241810}
+.banner{position:relative;margin:16px 0 8px;border-radius:var(--r);overflow:hidden;min-height:0;display:flex;box-shadow:var(--sh);background:#241810}
 .banner-scene{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55}
 .banner-shade{position:absolute;inset:0;background:linear-gradient(100deg,rgba(20,13,9,.9) 0%,rgba(20,13,9,.62) 46%,rgba(20,13,9,.32) 100%)}
-.banner-in{position:relative;display:flex;align-items:center;gap:30px;padding:30px 36px;width:100%}
-.portrait{width:122px;height:152px;border-radius:14px;flex-shrink:0;border:3px solid rgba(255,255,255,.55);overflow:hidden;background:rgba(255,255,255,.12);box-shadow:0 10px 30px rgba(0,0,0,.4);position:relative}
-.portrait .em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:52px}
+/* full-bleed hero variant: banner spans the viewport and reaches the very top,
+   with the topbar overlaid on it (in its normal position/padding) instead of
+   sitting above it in the page flow. */
+.banner-hero{width:100%;margin:0;border-radius:0;flex-direction:column;box-shadow:none}
+.banner-topbar{position:relative;margin:0}
+.banner-topbar .brand{color:#fff}
+.banner-content{position:relative;width:100%;max-width:1600px;margin:0 auto;padding:0 48px}
+.banner-in{position:relative;display:flex;align-items:center;gap:22px;padding:18px 30px;width:100%}
+.portrait{width:104px;height:124px;border-radius:12px;flex-shrink:0;border:3px solid rgba(255,255,255,.55);overflow:hidden;background:rgba(255,255,255,.12);box-shadow:0 10px 30px rgba(0,0,0,.4);position:relative}
+.portrait .em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:44px}
 .b-txt{flex:1;color:#fff;min-width:0}
-.b-who{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.b-who{display:flex;align-items:baseline;gap:10px;margin-bottom:7px;flex-wrap:wrap}
 .b-name{font-family:var(--serif);font-size:15px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#fff}
 .b-years{font-size:12px;color:rgba(255,255,255,.62);letter-spacing:.04em}
-.b-quote{font-family:var(--serif);font-style:italic;font-size:23px;line-height:1.42;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.5);max-width:640px;margin-bottom:13px}
-.b-legacy{font-size:13.5px;color:rgba(255,255,255,.82);max-width:560px;line-height:1.6}
-.b-scene-cap{position:absolute;left:36px;bottom:13px;font-size:11px;color:rgba(255,255,255,.55);letter-spacing:.04em;font-style:italic}
-.spark{position:absolute;right:18px;bottom:16px;display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.36);color:#fff;padding:8px 16px;border-radius:30px;font-size:13px;font-weight:500;backdrop-filter:blur(8px);transition:background .18s}
+.b-quote{font-family:var(--serif);font-style:italic;font-size:18.5px;line-height:1.34;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.5);max-width:640px;margin-bottom:7px}
+.b-legacy{font-size:12.5px;color:rgba(255,255,255,.82);max-width:560px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.b-scene-cap{position:absolute;right:20px;bottom:13px;text-align:right;font-size:11px;color:rgba(255,255,255,.55);letter-spacing:.04em;font-style:italic}
+.spark{position:absolute;right:18px;top:16px;display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.36);color:#fff;padding:8px 16px;border-radius:30px;font-size:13px;font-weight:500;backdrop-filter:blur(8px);transition:background .18s}
 .spark:hover{background:rgba(255,255,255,.28)}
 
-.split{display:grid;grid-template-columns:352px 1fr;gap:26px;padding-bottom:60px;align-items:start}
+.split{display:grid;grid-template-columns:352px 1fr;gap:26px;padding-bottom:20px;align-items:start}
 .split.solo{grid-template-columns:1fr}
 
 /* focus panel = NOW.md */
 .focus{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--sh);position:sticky;top:18px}
+/* a long roadmap scrolls INSIDE the Most-Important panel instead of growing the
+   page, so the whole dashboard stays on one screen */
+.focus .next-list{max-height:30vh;overflow-y:auto;scrollbar-width:thin;scrollbar-gutter:stable;padding-right:4px}
 .focus-tag{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#4a3208;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px 5px 10px;border-radius:30px;margin-bottom:14px;box-shadow:0 2px 9px rgba(201,136,42,.35)}
 .focus-hero{height:150px;border-radius:var(--r-sm);margin-bottom:14px;position:relative;background:linear-gradient(135deg,#d8c5a8,#c2a982)}
 .focus-hero .cap{position:absolute;left:10px;bottom:8px;font-size:10.5px;color:#fff;background:rgba(0,0,0,.34);padding:3px 9px;border-radius:20px;backdrop-filter:blur(3px);z-index:3}
 .focus-name{font-family:var(--serif);font-size:20px;font-weight:600;cursor:pointer;line-height:1.28;margin-bottom:8px}
 .focus-name:hover{color:var(--accent-deep)}
-.focus-why{font-size:12.5px;color:var(--ink-soft);font-style:italic;font-family:var(--serif);line-height:1.55;margin-bottom:15px}
+.focus-why{font-size:12.5px;color:var(--ink-soft);font-style:italic;font-family:var(--serif);line-height:1.55;margin-bottom:15px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .bar-row{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--ink-faint);margin-bottom:6px}
 .bar-row b{font-family:var(--serif);font-size:16px;color:var(--ink)}
 .bar{height:8px;background:var(--line);border-radius:5px;overflow:hidden}
@@ -98,6 +115,10 @@ main{animation:fadeup .35s ease}
 .calm-name{font-family:var(--serif);font-size:16px;font-weight:600;line-height:1.3;margin-bottom:4px}
 .calm-why{font-size:12px;color:var(--ink-soft);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5}
 .calm-foot{padding:10px 15px 14px}
+/* whole-card click target without nesting a <button> inside an <a> (UX-05):
+   the title link stretches over the card; the crown button (z-index:6) stays on top */
+.card-link{cursor:pointer}
+.stretch-link::after{content:"";position:absolute;inset:0;z-index:1}
 
 .bold{border-radius:var(--r);overflow:hidden;cursor:pointer;box-shadow:var(--sh);transition:transform .16s,box-shadow .16s;position:relative;min-height:172px;display:flex;flex-direction:column;justify-content:flex-end;background:#cdb89a}
 .bold-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -114,23 +135,54 @@ main{animation:fadeup .35s ease}
 .parked-chip{background:var(--line);color:var(--ink-faint)}
 
 .cr{display:block}
-.crown-badge{position:absolute;top:10px;right:14px;width:46px;height:46px;z-index:7;transform-origin:center bottom;animation:crownbob 2.6s ease-in-out infinite;
-  filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 4px 6px rgba(43,39,34,.3))}
+.crown-badge{position:absolute;top:10px;right:14px;width:38px;height:38px;z-index:7;
+  filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 3px 5px rgba(43,39,34,.28))}
 .crown-btn{position:absolute;top:11px;right:11px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.92);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;z-index:6;box-shadow:0 1px 5px rgba(0,0,0,.1);transition:transform .15s,background .15s;padding:6px}
-.crown-btn .cr{filter:grayscale(1) opacity(.4);transition:filter .15s}
-.crown-btn:hover{transform:scale(1.12)}
-.crown-btn:hover .cr{filter:none;animation:crownwiggle .5s ease}
-.now-ribbon{display:flex;gap:11px;align-items:flex-start;background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:11px 15px;margin-top:14px}
-.now-ribbon b{color:var(--accent-deep);font-size:11px;letter-spacing:.09em;text-transform:uppercase;flex-shrink:0;padding-top:2px}
-.now-ribbon span{font-size:13px;color:var(--ink-soft);line-height:1.5}
+.crown-btn .cr{filter:grayscale(.35) opacity(.7);transition:filter .15s}
+.crown-btn:hover,.crown-btn:focus-visible{transform:scale(1.12)}
+.crown-btn:hover .cr,.crown-btn:focus-visible .cr{filter:none;animation:crownwiggle .5s ease}
+/* "Now" — pinned to the very top of the page, slow horizontal ticker */
+.now-ticker{position:sticky;top:0;z-index:60;display:flex;align-items:stretch;background:linear-gradient(90deg,var(--accent-deep),var(--accent));color:#fff;box-shadow:0 2px 12px rgba(80,55,35,.18)}
+.now-ticker-label{display:flex;align-items:center;gap:8px;flex-shrink:0;padding:9px 16px 9px 48px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;background:rgba(0,0,0,.16)}
+.now-live{width:8px;height:8px;border-radius:50%;background:#fff;animation:nowpulse 2s ease-out infinite}
+@keyframes nowpulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.65)}70%{box-shadow:0 0 0 7px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}
+.now-ticker-viewport{flex:1;min-width:0;overflow:hidden;display:flex;align-items:center;padding-right:48px;
+  -webkit-mask:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 40px),transparent);
+  mask:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 40px),transparent)}
+.now-ticker-track{display:inline-flex;flex-shrink:0;white-space:nowrap;will-change:transform;animation:nowscroll 44s linear infinite}
+.now-ticker:hover .now-ticker-track,.now-ticker:focus-within .now-ticker-track{animation-play-state:paused}
+.now-ticker-text{font-family:var(--serif);font-size:14px;font-weight:500;color:#fff;letter-spacing:.01em}
+.now-sep{margin:0 2.2rem;color:rgba(255,255,255,.55)}
+@keyframes nowscroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce){
+  .now-ticker-track{animation:none;transform:none;display:block;white-space:normal;padding:8px 0}
+  .now-ticker-text:nth-child(2),.now-sep{display:none}
+  .now-live{animation:none}
+  .now-ticker-viewport{overflow:visible;-webkit-mask:none;mask:none}
+}
 
-/* goals + habits */
-.goal{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);padding:13px 15px;margin-bottom:10px}
-.goal-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;gap:10px}
-.goal-label{font-family:var(--serif);font-size:15px;font-weight:600}
-.goal-num{font-size:13px;color:var(--ink-faint);white-space:nowrap}
-.goal-num b{font-family:var(--serif);font-size:16px}
-.goal-meta{font-size:11.5px;color:var(--ink-faint);margin-top:7px}
+/* Daily habits as a compact Chrome-style tab strip. Resting state is just the
+   one-line tab row (so projects sit above the fold); clicking a tab opens its
+   how-to in a connected panel, click the active tab again to collapse. */
+.habit-tabs{margin-top:14px}
+.ht-bar{display:flex;align-items:flex-end;flex-wrap:wrap;gap:3px;border-bottom:1px solid var(--line)}
+.ht-lead{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-deep);margin-right:6px;padding-bottom:9px}
+.ht-tab{display:inline-flex;align-items:center;gap:6px;max-width:220px;margin-bottom:-1px;padding:8px 13px;border:1px solid transparent;border-bottom:none;border-radius:9px 9px 0 0;background:transparent;color:var(--ink-faint);font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,color .15s}
+.ht-tab:hover{background:var(--paper);color:var(--ink-soft)}
+.ht-tab.active{background:var(--paper);color:var(--ink);border-color:var(--line);font-weight:600}
+.ht-star{color:var(--gold-deep);font-size:11px;flex-shrink:0}
+.ht-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ht-panel{background:var(--paper);border:1px solid var(--line);border-top:none;border-radius:0 0 var(--r-sm) var(--r-sm);padding:13px 16px;animation:fadeup .2s ease}
+.ht-panel-hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.ht-panel-hd b{font-size:14px;color:var(--ink)}
+.ht-panel-cad{font-size:11.5px;color:var(--ink-faint);background:var(--bg);border:1px solid var(--line);padding:1px 9px;border-radius:20px;white-space:nowrap}
+.ht-detail{margin:0;padding-left:18px}
+.ht-detail li{font-size:13px;color:var(--ink-soft);line-height:1.55;margin-bottom:4px}
+.ht-open{display:inline-block;margin-top:8px;font-size:12.5px;color:var(--accent-deep);font-weight:600}
+.ht-open:hover{text-decoration:underline}
+.ht-empty{font-size:13px;color:var(--ink-soft)}
+@media (prefers-reduced-motion: reduce){.ht-panel{animation:none}}
+
 .habit{display:flex;align-items:center;gap:11px;padding:10px 13px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);margin-bottom:8px}
 .habit.done{background:#f3f7f3;border-color:#cfe3d3}
 .habit-dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff}
@@ -186,20 +238,122 @@ main{animation:fadeup .35s ease}
 .phase-block.done{opacity:.66}
 .phase-head{display:flex;align-items:flex-start;gap:12px}
 .phase-tasks{padding-left:38px;margin-top:6px}
+
+/* Sub-project group: Project › Sub-Project › Phase › Task */
+.subproject-block{border-left:3px solid var(--line);padding-left:14px;margin:0 0 22px}
+.subproject-block.done{opacity:.7}
+.subproject-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.subproject-t{font-size:15.5px;font-weight:700;letter-spacing:.1px}
+.subproject-m{font-size:12px;color:var(--ink-faint)}
+
 .write-note{display:flex;align-items:center;gap:8px;background:#eef5ef;border:1px solid #cfe3d3;color:#3a6b4f;border-radius:var(--r-sm);padding:9px 13px;font-size:12.5px;margin-bottom:18px}
 
 .next-list{display:flex;flex-direction:column;gap:2px}
-.todo-row{display:flex;align-items:flex-start;gap:11px;padding:11px 0;border-bottom:1px solid var(--line-soft)}
+.todo-row{display:flex;align-items:flex-start;gap:11px;padding:11px 0;border:0;border-bottom:1px solid var(--line-soft);width:100%;text-align:left;background:none;font:inherit;color:inherit;cursor:pointer}
 .todo-row:last-child{border-bottom:none}
+.todo-row:disabled{cursor:default}
 .box{width:20px;height:20px;border-radius:6px;border:2px solid var(--line);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff}
 .box.on{background:var(--good);border-color:var(--good)}
 .todo-t{font-size:14px;line-height:1.45}
 .todo-t.done{text-decoration:line-through;color:var(--ink-faint)}
 
-.stale{display:flex;align-items:center;gap:8px;background:#fdf3e3;border:1px solid #f0d9a8;color:#8a6414;border-radius:var(--r-sm);padding:9px 13px;font-size:12.5px;margin:14px 0 0}
+/* Completed tasks → collapsible per-checklist "Completed (N)" dropdown (closed by
+   default). Lives inside each checklist, so finished work stays attached to its
+   own phase/sub-project and never pools into one project-wide list. */
+.done-toggle{display:flex;align-items:center;gap:8px;width:100%;padding:10px 2px;background:none;border:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--ink-faint);text-align:left;cursor:pointer;transition:color .15s}
+.done-toggle:hover{color:var(--ink-soft)}
+.done-caret{font-size:10px;transition:transform .22s ease}
+.done-toggle.open .done-caret{transform:rotate(90deg)}
+.done-check{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:5px;background:var(--good);color:#fff;font-size:10px;flex-shrink:0}
+.done-label{letter-spacing:.02em}
+.done-count{margin-left:auto;background:var(--line-soft);color:var(--ink-faint);border-radius:20px;padding:1px 9px;font-size:11.5px;font-weight:600}
+.done-wrap{display:grid;grid-template-rows:0fr;transition:grid-template-rows .28s ease}
+.done-wrap.open{grid-template-rows:1fr}
+.done-inner{overflow:hidden;min-height:0}
+.done-list{display:flex;flex-direction:column;gap:2px}
+@media (prefers-reduced-motion: reduce){.done-wrap,.done-caret{transition:none}}
+
+/* Someday / parked projects → collapsed dropdown (the not-urgent/not-important
+   Eisenhower quadrant). Native <details>: closed by default, no client JS. */
+.someday-fold{margin-top:22px}
+.someday-fold>summary{display:flex;align-items:center;gap:8px;padding:10px 2px;font-size:12.5px;font-weight:600;color:var(--ink-faint);cursor:pointer;list-style:none;transition:color .15s}
+.someday-fold>summary::-webkit-details-marker{display:none}
+.someday-fold>summary:hover{color:var(--ink-soft)}
+.someday-caret{font-size:10px;transition:transform .22s ease}
+.someday-fold[open]>summary .someday-caret{transform:rotate(90deg)}
+.someday-count{margin-left:auto;background:var(--line-soft);color:var(--ink-faint);border-radius:20px;padding:1px 9px;font-size:11.5px;font-weight:600}
+@media (prefers-reduced-motion: reduce){.someday-caret{transition:none}}
+
+/* confirmation toast (pin a project) */
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:30px;font-size:13px;font-weight:600;box-shadow:var(--sh-lg);z-index:50;animation:toastpop .26s ease}
+
+/* areas: compact read-only chips (name + open-todo count) — flat, not clickable cards */
+.area-row{display:flex;flex-wrap:wrap;gap:8px}
+.area-chip{display:inline-flex;align-items:center;gap:7px;background:var(--paper);border:1px solid var(--line);border-radius:30px;padding:6px 13px;font-size:13px;color:var(--ink-faint);box-shadow:var(--sh)}
+.area-chip.has-open{color:var(--ink)}
+.area-chip-name{font-weight:500}
+.area-chip-count{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;padding:0 5px;background:var(--accent);color:#fff;border-radius:20px;font-size:11px;font-weight:700;line-height:1}
+
+/* inbox / resources / archive as labeled stat chips */
+.stat-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.stat-chip{display:inline-flex;align-items:baseline;gap:6px;background:var(--paper);border:1px solid var(--line);border-radius:30px;padding:6px 13px;font-size:12px;color:var(--ink-soft);box-shadow:var(--sh)}
+.stat-chip b{font-family:var(--serif);font-size:14px;color:var(--ink)}
+
+/* Vision rail — the annual goals horizon (VISION.md), compacted to ONE row of
+   five domain dials so it frames the projects without burying them. Click a dial
+   to expand that domain's goals beneath the rail (detail on demand, not by default). */
+.vision{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:13px 18px;box-shadow:var(--sh)}
+.vision-bar{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:11px}
+.vision-id{display:flex;align-items:baseline;gap:12px;min-width:0}
+.vision-kicker{font-family:var(--serif);font-size:16px;font-weight:600;color:var(--ink);white-space:nowrap}
+.vision-tag{font-family:var(--serif);font-style:italic;font-size:13px;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vision-active{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);white-space:nowrap;flex-shrink:0}
+.vision-rail{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.vtile{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 12px;transition:border-color .15s,background .15s,box-shadow .15s}
+.vtile:hover:not(:disabled),.vtile.open{border-color:var(--ink-faint);background:var(--paper)}
+.vtile.open{box-shadow:var(--sh)}
+.vtile.dormant{opacity:.5;cursor:default}
+.vtile-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.vtile-dom{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--ink-soft)}
+.vtile-pct{font-family:var(--serif);font-size:15px;font-weight:600;color:var(--ink)}
+.vision-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.vtile-bar{height:6px;background:var(--line);border-radius:5px;overflow:hidden}
+.vtile-bar>i{display:block;height:100%;border-radius:5px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.vtile-sub{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--ink-faint)}
+.vtile-caret{transition:transform .2s ease}
+.vtile.open .vtile-caret{transform:rotate(90deg)}
+/* expanded domain detail — the full goals for the clicked dial */
+.vision-detail{margin-top:12px;padding-top:13px;border-top:1px solid var(--line-soft);display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:13px 28px}
+.vision-goal-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
+.vision-goal-label{font-size:13.5px;color:var(--ink);min-width:0}
+.vision-goal-val{font-family:var(--serif);font-size:13.5px;color:var(--ink-soft);flex-shrink:0}
+.vision-goal-note{font-size:11px;color:var(--ink-faint);margin-top:5px}
+@media(max-width:880px){
+  .vision-rail{grid-template-columns:repeat(2,1fr)}
+  .vision-tag{display:none}
+}
+
+/* honor reduced-motion globally (not just the habit accordion) */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+  .crown-badge{animation:none}
+}
+
+/* tablet: gently narrow the focus column before it stacks */
+@media(max-width:1024px) and (min-width:881px){
+  .split{grid-template-columns:300px 1fr}
+}
 
 @media(max-width:880px){
   .split,.d-grid{grid-template-columns:1fr}
   .focus,.d-right{position:static}
-  .wrap,.topbar{padding-left:24px;padding-right:24px}
+  .wrap,.topbar,.banner-content{padding-left:24px;padding-right:24px}
+  /* top bar / breadcrumb: wrap instead of overflowing; ≥44px tap targets */
+  .topbar{flex-wrap:wrap}
+  .back,.pill{min-height:44px}
+  .crumb b{max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom}
+  /* banner: stack portrait above the text; hide the overlapping caption */
+  .banner-in{flex-direction:column;align-items:flex-start;gap:16px;padding:22px 20px 56px}
+  .b-quote{font-size:19px}
+  .b-scene-cap{display:none}
 }

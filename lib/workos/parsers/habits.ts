@@ -21,25 +21,40 @@ import { parseDay, slugify } from "./util";
 export function parseHabits(lines: string[], sourceRelPath: string): HabitsDoc {
   const habits: Habit[] = [];
   let section = "";
+  let current: Habit | null = null; // last top-level habit, for attaching detail
   const seen = new Set<string>();
 
   for (const line of lines) {
+    // Skip blockquote lines (the format note) so their `> -` bullets aren't parsed.
+    if (/^\s*>/.test(line)) continue;
+
     const h2 = line.match(/^##\s+(.+?)\s*$/);
     if (h2) {
       section = h2[1].trim();
+      current = null;
       continue;
     }
-    const bullet = line.match(/^\s*[-*]\s+(.*)$/);
-    if (!bullet || !bullet[1].trim()) continue;
+    const bullet = line.match(/^(\s*)[-*]\s+(.*)$/);
+    if (!bullet || !bullet[2].trim()) continue;
 
-    const habit = parseHabitLine(bullet[1].trim(), section, sourceRelPath);
+    const indent = bullet[1].replace(/\t/g, "  ").length;
+    const text = bullet[2].trim();
+
+    // An indented bullet under a habit is its how-to-implement detail.
+    if (indent >= 2 && current) {
+      (current.detail ??= []).push(text.replace(/[*`]/g, "").trim());
+      continue;
+    }
+
+    const habit = parseHabitLine(text, section, sourceRelPath);
     if (!habit) continue;
     // de-dupe ids (a repeated label) so streak derivation stays stable
     let id = habit.id;
     let n = 2;
     while (seen.has(id)) id = `${habit.id}-${n++}`;
     seen.add(id);
-    habits.push({ ...habit, id });
+    current = { ...habit, id };
+    habits.push(current);
   }
 
   return { habits };

@@ -27,3 +27,6 @@ Thumbs.db
 .idea/
 *.suo
 *.user
+
+# graphify tool cache (regenerable; keep the graph outputs, not the AST/semantic cache)
+graphify-out/cache/

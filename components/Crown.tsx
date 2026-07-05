@@ -1,5 +1,7 @@
-// Gold crown, recreated as an inline SVG (from the Claude Design assets/crown.png),
-// with the source's bobbing animation + white outline applied via the .crown-badge class.
+// "Most important" marker — a gold star. (Was a crown; swapped to a star 2026-06-28
+// because the crown drew too much attention.) Size + the bob/outline still come from
+// .crown-badge / .crown-btn in globals.css; the `Crown` name and `.cr` class are kept
+// so callers don't change.
 
 export function Crown({ className = "", uid }: { className?: string; uid: string }) {
   const g = "cg" + uid;
@@ -19,20 +21,14 @@ export function Crown({ className = "", uid }: { className?: string; uid: string
           <stop offset="1" stopColor="#d68f1f" />
         </linearGradient>
       </defs>
+      {/* 5-pointed star, rounded joins (softer than a spiky star) */}
       <path
-        d="M5 41 L9.5 17 Q9.7 14.5 11.6 16.2 L22 28 L30.2 8.5 Q32 4.8 33.8 8.5 L42 28 L52.4 16.2 Q54.3 14.5 54.5 17 L59 41 Z"
+        d="M32 4 L37.9 20.9 L55.8 21.3 L41.5 32.1 L46.7 49.2 L32 39 L17.3 49.2 L22.5 32.1 L8.2 21.3 L26.1 20.9 Z"
         fill={`url(#${g})`}
         stroke="#b9781a"
         strokeWidth="1.3"
         strokeLinejoin="round"
       />
-      <rect x="6.5" y="41" width="51" height="10.5" rx="3" fill={`url(#${g})`} stroke="#b9781a" strokeWidth="1.3" />
-      <circle cx="10.7" cy="15.5" r="2.6" fill="#ff8a5b" stroke="#fff" strokeWidth="1" />
-      <circle cx="32" cy="7.2" r="3" fill="#7fd1c0" stroke="#fff" strokeWidth="1" />
-      <circle cx="53.3" cy="15.5" r="2.6" fill="#ff8a5b" stroke="#fff" strokeWidth="1" />
-      <circle cx="32" cy="46.3" r="3.2" fill="#e0556a" stroke="#fff" strokeWidth="1.1" />
-      <circle cx="20" cy="46.3" r="2" fill="#fff" opacity=".75" />
-      <circle cx="44" cy="46.3" r="2" fill="#fff" opacity=".75" />
     </svg>
   );
 }
