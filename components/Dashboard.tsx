@@ -131,6 +131,7 @@ export default function Dashboard({
   );
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [openArea, setOpenArea] = useState<string | null>(null);
 
   function pickStyle(s: CardStyle) {
     setStyle(s);
@@ -261,23 +262,70 @@ export default function Dashboard({
                 </details>
               )}
 
-              {view.areas.length > 0 && (
-                <>
-                  <div className="col-hd" style={{ margin: "22px 0 10px" }}><h2>Areas</h2></div>
-                  <div className="area-row">
-                    {view.areas.map((a) => (
-                      <span
-                        className={`area-chip ${a.openCount > 0 ? "has-open" : ""}`}
-                        key={a.slug}
-                        title={a.openCount > 0 ? `${a.openCount} open todo${a.openCount !== 1 ? "s" : ""}` : "No open todos"}
-                      >
-                        <span className="area-chip-name">{a.name}</span>
-                        {a.openCount > 0 && <span className="area-chip-count">{a.openCount}</span>}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
+              {view.areas.length > 0 && (() => {
+                const STALE_DAYS = 30; // an area silently untouched this long gets flagged
+                const open = view.areas.find((a) => a.slug === openArea);
+                return (
+                  <>
+                    <div className="col-hd" style={{ margin: "22px 0 10px" }}><h2>Areas</h2></div>
+                    <div className="area-row">
+                      {view.areas.map((a) => {
+                        const stale = a.lastTouchedDays != null && a.lastTouchedDays > STALE_DAYS;
+                        const isOpen = openArea === a.slug;
+                        return (
+                          <button
+                            type="button"
+                            className={`area-chip ${a.openCount > 0 ? "has-open" : ""}${stale ? " stale" : ""}${isOpen ? " open" : ""}`}
+                            key={a.slug}
+                            aria-expanded={isOpen}
+                            onClick={() => setOpenArea(isOpen ? null : a.slug)}
+                            title={a.openCount > 0 ? `${a.openCount} open todo${a.openCount !== 1 ? "s" : ""}` : "No open todos"}
+                          >
+                            <span className="area-chip-name">{a.name}</span>
+                            {a.openCount > 0 && <span className="area-chip-count">{a.openCount}</span>}
+                            {stale && (
+                              <span className="area-chip-age" title={`Untouched for ${a.lastTouchedDays} days`}>
+                                {a.lastTouchedDays}d
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {open && (
+                      <div className="area-panel">
+                        <div className="area-panel-meta">
+                          {open.openCount > 0
+                            ? `${open.openCount} open todo${open.openCount !== 1 ? "s" : ""}`
+                            : "No open todos"}
+                          {" · "}
+                          {open.fileCount} file{open.fileCount !== 1 ? "s" : ""}
+                          {open.lastTouchedDays != null && (
+                            <> · last touched {open.lastTouchedDays === 0 ? "today" : `${open.lastTouchedDays}d ago`}</>
+                          )}
+                        </div>
+                        {open.goals.length > 0 ? (
+                          open.goals.map((g) => (
+                            <div className="area-goal" key={g.label}>
+                              <div className="area-goal-top">
+                                <span className="area-goal-label">{g.label}</span>
+                                <span className="area-goal-num">
+                                  <b>{g.current}</b> / {g.target}
+                                  {g.unit ? ` ${g.unit}` : ""}
+                                  {g.dateText ? ` · by ${g.dateText}` : ""}
+                                </span>
+                              </div>
+                              <div className="bar"><i style={{ width: `${g.pct}%`, background: "var(--accent)" }} /></div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="area-goal-empty">No metric goals — backlog / reference only.</div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               <div className="stat-row">
                 <span className="stat-chip"><b>{view.counts.inbox}</b> Inbox</span>
