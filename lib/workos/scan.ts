@@ -7,7 +7,7 @@ import {
   resolveInVault,
   toRel,
 } from "./paths";
-import { safeRead } from "./reader";
+import { safeRead, statMtimeMs } from "./reader";
 import type {
   Campaign,
   GreatSiege,
@@ -19,6 +19,7 @@ import type {
 } from "./types";
 import { parseRoadmap, phaseProgress } from "./parsers/roadmap";
 import { parseTodos } from "./parsers/todos";
+import { parseAreaGoals } from "./parsers/goals";
 import { parseNow } from "./parsers/now";
 import { parseHabits } from "./parsers/habits";
 import { parseHabitLog } from "./parsers/habitlog";
@@ -156,7 +157,14 @@ export function buildProvince(slug: string): (Province & { _mtime: number }) | n
 
   const todosRead = safeRead(path.join(dir, "todos.md"));
   const todos = todosRead ? parseTodos(todosRead.lines) : undefined;
+  const goalsRead = safeRead(path.join(dir, "goals.md"));
+  const goals = goalsRead ? parseAreaGoals(goalsRead.lines) : [];
   const files = walkMd(dir);
+
+  // Newest touch across EVERYTHING the area holds (not just todos.md) — the
+  // anti-rot signal: an area whose reference hasn't moved in weeks surfaces it.
+  let lastTouchedMs = maxMtime(todosRead?.mtimeMs, goalsRead?.mtimeMs);
+  for (const f of files) lastTouchedMs = maxMtime(lastTouchedMs, statMtimeMs(f.absPath));
 
   return {
     slug,
@@ -165,6 +173,10 @@ export function buildProvince(slug: string): (Province & { _mtime: number }) | n
     todosRelPath: todosRead?.relPath,
     todosAbsPath: todosRead?.absPath,
     openQuestCount: todos?.openCount ?? 0,
+    goals,
+    goalsRelPath: goalsRead?.relPath,
+    fileCount: files.length,
+    lastTouchedMs: lastTouchedMs || undefined,
     files,
     dir,
     relDir: toRel(dir),

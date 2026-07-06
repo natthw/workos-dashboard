@@ -105,6 +105,16 @@ export interface Campaign {
   files: VaultFileRef[];
 }
 
+/** One numeric metric from an area's goals.md: `Label: start → current → target unit by <date>`. */
+export interface AreaGoal {
+  label: string;
+  start: number;
+  current: number;
+  target: number;
+  unit?: string;
+  dateText?: string; // raw "by …" tail, if present
+}
+
 export interface Province {
   slug: string;
   name: string;
@@ -112,6 +122,10 @@ export interface Province {
   todosRelPath?: string;
   todosAbsPath?: string;
   openQuestCount: number;
+  goals: AreaGoal[]; // numeric metrics from goals.md (empty when the file is absent)
+  goalsRelPath?: string;
+  fileCount: number; // every .md the area holds (the "this area exists" signal)
+  lastTouchedMs?: number; // newest mtime across ALL the area's .md files (anti-rot signal)
   files: VaultFileRef[];
   dir: string;
   relDir: string;

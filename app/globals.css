@@ -287,12 +287,24 @@ main{animation:fadeup .35s ease}
 /* confirmation toast (pin a project) */
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:30px;font-size:13px;font-weight:600;box-shadow:var(--sh-lg);z-index:50;animation:toastpop .26s ease}
 
-/* areas: compact read-only chips (name + open-todo count) — flat, not clickable cards */
+/* areas: compact chips (name + open-todo count + stale-age badge); click opens a
+   connected detail panel (goals.md metrics, file count, last-touched) below the row */
 .area-row{display:flex;flex-wrap:wrap;gap:8px}
-.area-chip{display:inline-flex;align-items:center;gap:7px;background:var(--paper);border:1px solid var(--line);border-radius:30px;padding:6px 13px;font-size:13px;color:var(--ink-faint);box-shadow:var(--sh)}
+.area-chip{display:inline-flex;align-items:center;gap:7px;background:var(--paper);border:1px solid var(--line);border-radius:30px;padding:6px 13px;font-size:13px;color:var(--ink-faint);box-shadow:var(--sh);cursor:pointer;font-family:inherit}
+.area-chip:hover{border-color:var(--ink-faint)}
 .area-chip.has-open{color:var(--ink)}
+.area-chip.open{border-color:var(--accent);color:var(--ink)}
+.area-chip.stale{border-style:dashed}
 .area-chip-name{font-weight:500}
 .area-chip-count{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;padding:0 5px;background:var(--accent);color:#fff;border-radius:20px;font-size:11px;font-weight:700;line-height:1}
+.area-chip-age{font-size:11px;font-weight:700;color:#b5852e}
+.area-panel{margin-top:10px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--sh)}
+.area-panel-meta{font-size:12px;color:var(--ink-soft);margin-bottom:10px}
+.area-goal{margin-top:8px}
+.area-goal-top{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:4px}
+.area-goal-label{font-weight:500;color:var(--ink)}
+.area-goal-num{color:var(--ink-soft)}
+.area-goal-empty{font-size:12px;color:var(--ink-faint)}
 
 /* inbox / resources / archive as labeled stat chips */
 .stat-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}

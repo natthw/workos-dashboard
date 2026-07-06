@@ -62,10 +62,25 @@ export interface NowView {
   someday: string[];
 }
 
+/** One numeric metric from an area's goals.md, ready to render as a mini bar. */
+export interface AreaGoalView {
+  label: string;
+  current: number;
+  target: number;
+  unit?: string;
+  pct: number;
+  dateText?: string;
+}
+
 export interface AreaView {
   slug: string;
   name: string;
   openCount: number;
+  goals: AreaGoalView[];
+  fileCount: number;
+  /** Whole days since ANY .md in the area changed — the anti-rot signal. */
+  lastTouchedDays?: number;
+  todosRelPath?: string;
 }
 
 export interface HabitView {
@@ -312,6 +327,23 @@ export function toDashView(
       slug: p.slug,
       name: p.name,
       openCount: p.openQuestCount,
+      goals: p.goals.map((g) => {
+        const denom = g.target - g.start;
+        return {
+          label: g.label,
+          current: g.current,
+          target: g.target,
+          unit: g.unit,
+          pct: denom !== 0 ? clampPct(((g.current - g.start) / denom) * 100) : 0,
+          dateText: g.dateText,
+        };
+      }),
+      fileCount: p.fileCount,
+      lastTouchedDays:
+        p.lastTouchedMs != null
+          ? Math.max(0, Math.floor((Date.now() - p.lastTouchedMs) / 86400000))
+          : undefined,
+      todosRelPath: p.todosRelPath,
     })),
     habits: (() => {
       const today = realm.todayISO;

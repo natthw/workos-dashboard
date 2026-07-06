@@ -105,8 +105,10 @@ without updating every consumer at once.
   `/api/realm/version`). The old staged IMPERIVM/HUD engine
   (`derive`/`gamification`/`focus`/`hud`/`search`/`request`/`coredb`/`format`) was **removed
   2026-06-24** — this is a calm reader/writer, not a game. The dead Roman-themed types and the
-  unused `goals`/`log`/`hot` parsers + the orphaned `settings.ts` were also removed, so `types.ts`
+  unused `log`/`hot` parsers + the orphaned `settings.ts` were also removed, so `types.ts`
   now holds only what the app renders. `GreatSiege` (nearest deadline) is the one such name kept.
+  (The `goals` parser was **re-added 2026-07-06** — per-area `goals.md` metrics now render in the
+  expandable Area chips, alongside file count + a last-touched staleness badge.)
 - **UI patterns.** Images go through `<RemoteImage>` (`next/image` + gradient fallback); fonts via
   `next/font` in `layout.tsx`; a11y baseline = `:focus-visible` ring, keyboard `role="checkbox"`
   rows, and a global `prefers-reduced-motion` reset in `globals.css`.
