@@ -12,6 +12,13 @@ export const dynamic = "force-dynamic";
 const STATUS_LABEL: Record<string, string> = { done: "Done", active: "Active", todo: "To do" };
 const STATUS_MARK: Record<string, string> = { done: "✓", active: "▶", todo: "" };
 
+// Deadline countdown text — kept in sync with the dashboard's DeadlineChip.
+function deadlineText(daysLeft: number): string {
+  if (daysLeft < 0) return `${Math.abs(daysLeft)}d overdue`;
+  if (daysLeft === 0) return "due today";
+  return `due in ${daysLeft}d`;
+}
+
 function PhaseBlock({ relPath, ph }: { relPath: string; ph: PhaseTasks }) {
   const k = ph.statusKey;
   return (
@@ -123,7 +130,21 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
               </div>
 
               <div className="d-card">
-                {p.hardDeadline && <div className="meta-row"><span>Deadline</span><b>{p.hardDeadline}{card.daysLeft != null ? ` (${card.daysLeft}d)` : ""}</b></div>}
+                {p.hardDeadline && (
+                  <div className="meta-row">
+                    <span>Deadline</span>
+                    <b>
+                      {card.daysLeft != null && (
+                        <span className="deadline-line">
+                          <span className={`deadline-chip${card.daysLeft <= 0 ? " overdue" : ""}`}>
+                            <span aria-hidden="true">⏳</span> {deadlineText(card.daysLeft)}
+                          </span>
+                        </span>
+                      )}
+                      {p.hardDeadline}
+                    </b>
+                  </div>
+                )}
                 {p.currentPhase && <div className="meta-row"><span>Current phase</span><b>{p.currentPhase}</b></div>}
                 {c.lastSessionDate && <div className="meta-row"><span>Last session</span><b>{c.lastSessionDate}</b></div>}
                 {c.sessionCount > 0 && <div className="meta-row"><span>Sessions</span><b>{c.sessionCount}</b></div>}

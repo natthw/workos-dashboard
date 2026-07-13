@@ -3,7 +3,7 @@
 :root{
   --bg:#f4ece0; --paper:#fbf6ee; --ink:#33271d; --ink-soft:#6b5848; --ink-faint:#7d6a58;
   --line:#e7dac8; --line-soft:#efe5d6;
-  --accent:#d2724a; --accent-deep:#b85a35; --gold:#d9a441; --gold-deep:#c4882a; --good:#3a6b4f;
+  --accent:#d2724a; --accent-deep:#b85a35; --gold:#d9a441; --gold-deep:#c4882a; --good:#3a6b4f; --warn:#c0442e;
   --serif:var(--font-spectral),'Spectral',Georgia,serif; --sans:var(--font-dm-sans),'DM Sans',system-ui,-apple-system,sans-serif;
   --r:16px; --r-sm:10px;
   --sh:0 1px 2px rgba(80,55,35,.04),0 6px 20px rgba(80,55,35,.07); --sh-lg:0 8px 36px rgba(80,55,35,.16);
@@ -33,6 +33,7 @@ button:disabled{cursor:default}
 @keyframes crownbob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-4px) rotate(-3deg)}}
 @keyframes crownwiggle{0%,100%{transform:scale(1.28) rotate(0)}25%{transform:scale(1.32) rotate(-12deg)}75%{transform:scale(1.32) rotate(12deg)}}
 @keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes revealDown{from{opacity:0;transform:translateY(-6px) scaleY(.96);transform-origin:top}to{opacity:1;transform:translateY(0) scaleY(1);transform-origin:top}}
 
 .imgwrap{position:relative;overflow:hidden}
 .imgwrap > .ph{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
@@ -58,7 +59,13 @@ main{animation:fadeup .35s ease}
    with the topbar overlaid on it (in its normal position/padding) instead of
    sitting above it in the page flow. */
 .banner-hero{width:100%;margin:0;border-radius:0;flex-direction:column;box-shadow:none}
-.banner-topbar{position:relative;margin:0}
+/* width:100% + the inherited `margin:0 auto`/`max-width:1600px` makes the topbar a
+   fixed 1600px box centred in the full-bleed hero — so the brand stays hard-left
+   while the pills align with the content column and the "Another spark" button
+   below. (A bare `margin:0` left-pinned the whole box, drifting the pills ~200px
+   left of everything on wide screens; `margin:0 auto` alone made the flex item
+   shrink-to-content and mis-centre the brand — the explicit width fixes both.) */
+.banner-topbar{position:relative;width:100%}
 .banner-topbar .brand{color:#fff}
 .banner-content{position:relative;width:100%;max-width:1600px;margin:0 auto;padding:0 48px}
 .banner-in{position:relative;display:flex;align-items:center;gap:22px;padding:18px 30px;width:100%}
@@ -71,7 +78,9 @@ main{animation:fadeup .35s ease}
 .b-quote{font-family:var(--serif);font-style:italic;font-size:18.5px;line-height:1.34;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.5);max-width:640px;margin-bottom:7px}
 .b-legacy{font-size:12.5px;color:rgba(255,255,255,.82);max-width:560px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .b-scene-cap{position:absolute;right:20px;bottom:13px;text-align:right;font-size:11px;color:rgba(255,255,255,.55);letter-spacing:.04em;font-style:italic}
-.spark{position:absolute;right:18px;top:16px;display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.36);color:#fff;padding:8px 16px;border-radius:30px;font-size:13px;font-weight:500;backdrop-filter:blur(8px);transition:background .18s}
+/* right:48px aligns the button to the same 48px content gutter as the topbar
+   pills above it, so the whole top-right control cluster shares one edge */
+.spark{position:absolute;right:48px;top:16px;display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.36);color:#fff;padding:8px 16px;border-radius:30px;font-size:13px;font-weight:500;backdrop-filter:blur(8px);transition:background .18s}
 .spark:hover{background:rgba(255,255,255,.28)}
 
 .split{display:grid;grid-template-columns:352px 1fr;gap:26px;padding-bottom:20px;align-items:start}
@@ -83,7 +92,12 @@ main{animation:fadeup .35s ease}
    page, so the whole dashboard stays on one screen */
 .focus .next-list{max-height:30vh;overflow-y:auto;scrollbar-width:thin;scrollbar-gutter:stable;padding-right:4px}
 .focus-tag{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#4a3208;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px 5px 10px;border-radius:30px;margin-bottom:14px;box-shadow:0 2px 9px rgba(201,136,42,.35)}
-.focus-hero{height:150px;border-radius:var(--r-sm);margin-bottom:14px;position:relative;background:linear-gradient(135deg,#d8c5a8,#c2a982)}
+/* positioning context for the stretch-link: the title's ::after covers this whole
+   wrapper (hero image + title), so clicking the picture opens the project too */
+.focus-head{position:relative}
+.focus-hero{height:150px;border-radius:var(--r-sm);margin-bottom:14px;position:relative;overflow:hidden;background:linear-gradient(135deg,#d8c5a8,#c2a982)}
+.focus-hero .ph{transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.focus-head:hover .focus-hero .ph{transform:scale(1.045)}
 .focus-hero .cap{position:absolute;left:10px;bottom:8px;font-size:10.5px;color:#fff;background:rgba(0,0,0,.34);padding:3px 9px;border-radius:20px;backdrop-filter:blur(3px);z-index:3}
 .focus-name{font-family:var(--serif);font-size:20px;font-weight:600;cursor:pointer;line-height:1.28;margin-bottom:8px}
 .focus-name:hover{color:var(--accent-deep)}
@@ -121,22 +135,46 @@ main{animation:fadeup .35s ease}
 .stretch-link::after{content:"";position:absolute;inset:0;z-index:1}
 
 .bold{border-radius:var(--r);overflow:hidden;cursor:pointer;box-shadow:var(--sh);transition:transform .16s,box-shadow .16s;position:relative;min-height:172px;display:flex;flex-direction:column;justify-content:flex-end;background:#cdb89a}
+/* the Bold card declared the transition but never had a :hover target — so it
+   sat still while the Calm card lifted. Match them (UX consistency). */
+.bold:hover{transform:translateY(-3px);box-shadow:var(--sh-lg)}
 .bold-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.bold-fade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(251,246,238,0) 28%,rgba(251,246,238,.86) 62%,var(--paper) 100%)}
+/* fade reaches near-solid cream sooner so the stats sit on a legible ground —
+   the hero image still reads through the top third of the card. */
+.bold-fade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(251,246,238,0) 20%,rgba(251,246,238,.74) 46%,rgba(251,246,238,.95) 70%,var(--paper) 100%)}
 .bold-body{position:relative;padding:16px}
-.bold-pct{font-family:var(--serif);font-size:38px;font-weight:600;line-height:1;margin-bottom:2px}
+/* cream halo keeps the accent number readable over any residual imagery (AA) */
+.bold-pct{font-family:var(--serif);font-size:38px;font-weight:600;line-height:1;margin-bottom:2px;text-shadow:0 0 10px rgba(251,246,238,.95),0 1px 2px rgba(251,246,238,.95)}
+.bold-notstarted{font-family:var(--serif);font-size:19px;font-weight:600;line-height:1;margin-bottom:4px;color:var(--ink-faint)}
 .bold-name{font-family:var(--serif);font-size:16px;font-weight:600;margin-bottom:9px}
 .bold-meta{font-size:11.5px;color:var(--ink-faint);margin-top:6px}
 .ft-row{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px;color:var(--ink-faint);margin-bottom:6px}
 .ft-row b{font-family:var(--serif);font-size:14px}
 
 .tag-chip{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:5px;display:inline-block}
-.lead-chip{background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#4a3208}
+/* Eisenhower category (urgent+important) — accent, NOT gold: the single gold ★
+   crown ("Most important") stays the one primacy signal, so the two never clash. */
+.lead-chip{background:var(--accent);color:#fff}
 .parked-chip{background:var(--line);color:var(--ink-faint)}
+/* deadline as its own labelled chip (⏳ = deadline, matching the header pill) so
+   it reads as a due-date status, not a task metric — with an explicit overdue
+   warning treatment, never a negative "-Nd left". */
+.deadline-chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--ink-soft);background:var(--line-soft);border-radius:20px;padding:2px 9px;white-space:nowrap}
+.deadline-chip.overdue{color:var(--warn);background:rgba(192,68,46,.1)}
+.foot-deadline{margin-top:9px}
+.deadline-line{display:block;margin-bottom:6px}
+.pill-overdue{border-color:var(--warn)}
+.pill-overdue b{color:var(--warn)}
 
 .cr{display:block}
+/* the Most-important card's crown gently bobs at rest (the crownbob keyframe was
+   defined but never wired up — the reduced-motion rule below already expects it),
+   and gives the same wiggle the project-card crown button does when its hero is
+   hovered — so the featured card has the animated crown affordance too. */
 .crown-badge{position:absolute;top:10px;right:14px;width:38px;height:38px;z-index:7;
+  animation:crownbob 3s ease-in-out infinite;transform-origin:50% 80%;
   filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 3px 5px rgba(43,39,34,.28))}
+.focus-head:hover .crown-badge{animation:crownwiggle .5s ease}
 .crown-btn{position:absolute;top:11px;right:11px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.92);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;z-index:6;box-shadow:0 1px 5px rgba(0,0,0,.1);transition:transform .15s,background .15s;padding:6px}
 .crown-btn .cr{filter:grayscale(.35) opacity(.7);transition:filter .15s}
 .crown-btn:hover,.crown-btn:focus-visible{transform:scale(1.12)}
@@ -167,12 +205,12 @@ main{animation:fadeup .35s ease}
 .habit-tabs{margin-top:14px}
 .ht-bar{display:flex;align-items:flex-end;flex-wrap:wrap;gap:3px;border-bottom:1px solid var(--line)}
 .ht-lead{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-deep);margin-right:6px;padding-bottom:9px}
-.ht-tab{display:inline-flex;align-items:center;gap:6px;max-width:220px;margin-bottom:-1px;padding:8px 13px;border:1px solid transparent;border-bottom:none;border-radius:9px 9px 0 0;background:transparent;color:var(--ink-faint);font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,color .15s}
-.ht-tab:hover{background:var(--paper);color:var(--ink-soft)}
-.ht-tab.active{background:var(--paper);color:var(--ink);border-color:var(--line);font-weight:600}
+.ht-tab{display:inline-flex;align-items:center;gap:6px;max-width:220px;margin-bottom:-1px;padding:8px 13px;border:1px solid transparent;border-bottom:none;border-radius:9px 9px 0 0;background:transparent;color:var(--ink-soft);font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,color .15s}
+.ht-tab:hover{background:rgba(251,246,238,.45);color:var(--ink-soft)}
+.ht-tab.active{background:rgba(251,246,238,.62);backdrop-filter:blur(3px);color:var(--ink);border-color:var(--line);font-weight:600}
 .ht-star{color:var(--gold-deep);font-size:11px;flex-shrink:0}
 .ht-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ht-panel{background:var(--paper);border:1px solid var(--line);border-top:none;border-radius:0 0 var(--r-sm) var(--r-sm);padding:13px 16px;animation:fadeup .2s ease}
+.ht-panel{background:rgba(251,246,238,.62);backdrop-filter:blur(3px);border:1px solid var(--line);border-top:none;border-radius:0 0 var(--r-sm) var(--r-sm);padding:13px 16px;animation:revealDown .6s cubic-bezier(.2,.8,.2,1)}
 .ht-panel-hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
 .ht-panel-hd b{font-size:14px;color:var(--ink)}
 .ht-panel-cad{font-size:11.5px;color:var(--ink-faint);background:var(--bg);border:1px solid var(--line);padding:1px 9px;border-radius:20px;white-space:nowrap}
@@ -181,7 +219,7 @@ main{animation:fadeup .35s ease}
 .ht-open{display:inline-block;margin-top:8px;font-size:12.5px;color:var(--accent-deep);font-weight:600}
 .ht-open:hover{text-decoration:underline}
 .ht-empty{font-size:13px;color:var(--ink-soft)}
-@media (prefers-reduced-motion: reduce){.ht-panel{animation:none}}
+@media (prefers-reduced-motion: reduce){.ht-panel,.vision-detail{animation:none}}
 
 .habit{display:flex;align-items:center;gap:11px;padding:10px 13px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);margin-bottom:8px}
 .habit.done{background:#f3f7f3;border-color:#cfe3d3}
@@ -211,7 +249,9 @@ main{animation:fadeup .35s ease}
 .meta-row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:7px 0;border-bottom:1px solid var(--line-soft)}
 .meta-row:last-child{border-bottom:none}
 .meta-row span{color:var(--ink-faint)}
-.meta-row b{color:var(--ink);font-weight:600;text-align:right}
+/* values left-align (was right): long wrapping values like Deadline/Stack read as
+   clean ragged-right text instead of a hard-to-scan right-aligned block */
+.meta-row b{color:var(--ink);font-weight:600;text-align:left;min-width:0;max-width:64%}
 .sec-h{font-size:18px;margin:4px 0 14px}
 
 .phase{display:flex;align-items:flex-start;gap:13px;padding:14px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);margin-bottom:9px;transition:box-shadow .15s,border-color .15s}
@@ -256,6 +296,10 @@ main{animation:fadeup .35s ease}
 .box.on{background:var(--good);border-color:var(--good)}
 .todo-t{font-size:14px;line-height:1.45}
 .todo-t.done{text-decoration:line-through;color:var(--ink-faint)}
+/* the Most-important panel's checklist details read smaller than the full project page */
+.focus .todo-t{font-size:12.5px;line-height:1.4}
+.focus .done-label,.focus .done-count{font-size:12px}
+.todo-more{font-size:12px;color:var(--ink-faint);font-style:italic;padding:9px 2px 2px}
 
 /* Completed tasks → collapsible per-checklist "Completed (N)" dropdown (closed by
    default). Lives inside each checklist, so finished work stays attached to its
@@ -314,20 +358,33 @@ main{animation:fadeup .35s ease}
 /* Vision rail — the annual goals horizon (VISION.md), compacted to ONE row of
    five domain dials so it frames the projects without burying them. Click a dial
    to expand that domain's goals beneath the rail (detail on demand, not by default). */
-.vision{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:13px 18px;box-shadow:var(--sh)}
+/* the life-journey painting is the Vision-band backdrop; a soft cream scrim keeps
+   the (smaller, lighter) text legible while the watercolor reads through */
+/* scrim deepens toward the bottom, where the painting's trees/mountains are busiest
+   and the habit strip + expanded goal detail sit — keeps that text at AA contrast. */
+.vision{position:relative;min-height:210px;background-color:var(--paper);background-image:linear-gradient(rgba(251,246,238,.4),rgba(251,246,238,.74)),url(/life-journey.png);background-size:cover,cover;background-position:center,top;background-repeat:no-repeat,no-repeat;border:1px solid var(--line);border-radius:var(--r);padding:16px 20px;box-shadow:var(--sh)}
 .vision-bar{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:11px}
 .vision-id{display:flex;align-items:baseline;gap:12px;min-width:0}
-.vision-kicker{font-family:var(--serif);font-size:16px;font-weight:600;color:var(--ink);white-space:nowrap}
-.vision-tag{font-family:var(--serif);font-style:italic;font-size:13px;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vision-kicker{font-family:var(--serif);font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap}
+.vision-tag{font-family:var(--serif);font-style:italic;font-size:12px;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vision-plan{font-family:var(--serif);font-style:italic;font-size:11.5px;color:var(--accent-deep);white-space:nowrap;flex-shrink:0;opacity:.85;transition:opacity .15s}
+.vision-plan:hover{opacity:1;text-decoration:underline}
+/* text sits directly on the painting now — a light cream halo keeps it legible */
+.vision-kicker,.vision-tag,.vision-active,.vision-plan,.ht-lead,.ht-tab{text-shadow:0 0 8px rgba(251,246,238,.96),0 1px 2px rgba(251,246,238,.96)}
+/* Daily habits nested inside the Vision box, divided from the goals above */
+.vision-habits{margin-top:16px;padding-top:14px;border-top:1px solid rgba(230,218,200,.7)}
+.vision-habits .habit-tabs{margin-top:0}
 .vision-active{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);white-space:nowrap;flex-shrink:0}
 .vision-rail{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
-.vtile{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 12px;transition:border-color .15s,background .15s,box-shadow .15s}
+.vtile{display:flex;flex-direction:column;gap:6px;text-align:left;background:rgba(251,246,238,.55);backdrop-filter:blur(2px);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 12px;transition:border-color .15s,background .15s,box-shadow .15s}
 .vtile:hover:not(:disabled),.vtile.open{border-color:var(--ink-faint);background:var(--paper)}
 .vtile.open{box-shadow:var(--sh)}
 .vtile.dormant{opacity:.5;cursor:default}
 .vtile-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.vtile-dom{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--ink-soft)}
-.vtile-pct{font-family:var(--serif);font-size:15px;font-weight:600;color:var(--ink)}
+.vtile-dom{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500;color:var(--ink-faint)}
+.vtile-pct{font-family:var(--serif);font-size:13px;font-weight:600;color:var(--ink-soft)}
+.vtile.open .vtile-dom{color:var(--ink);font-weight:600}
+.vtile.open .vtile-pct{color:var(--ink)}
 .vision-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
 .vtile-bar{height:6px;background:var(--line);border-radius:5px;overflow:hidden}
 .vtile-bar>i{display:block;height:100%;border-radius:5px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
@@ -335,7 +392,11 @@ main{animation:fadeup .35s ease}
 .vtile-caret{transition:transform .2s ease}
 .vtile.open .vtile-caret{transform:rotate(90deg)}
 /* expanded domain detail — the full goals for the clicked dial */
-.vision-detail{margin-top:12px;padding-top:13px;border-top:1px solid var(--line-soft);display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:13px 28px}
+/* detail panel expands from the clicked dial: a caret points up to that card, and
+   the accent top-border + the dial's dark text complete the link. frosted so the
+   painting still reads. */
+.vision-detail{position:relative;margin-top:10px;padding:14px 16px;border:1px solid var(--line);border-top:3px solid var(--line);border-radius:var(--r-sm);background:rgba(251,246,238,.6);backdrop-filter:blur(3px);display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:13px 28px;animation:revealDown .6s cubic-bezier(.2,.8,.2,1)}
+.vision-caret{position:absolute;top:-8px;transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:8px solid var(--line)}
 .vision-goal-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
 .vision-goal-label{font-size:13.5px;color:var(--ink);min-width:0}
 .vision-goal-val{font-family:var(--serif);font-size:13.5px;color:var(--ink-soft);flex-shrink:0}
@@ -343,6 +404,7 @@ main{animation:fadeup .35s ease}
 @media(max-width:880px){
   .vision-rail{grid-template-columns:repeat(2,1fr)}
   .vision-tag{display:none}
+  .vision-caret{display:none}
 }
 
 /* honor reduced-motion globally (not just the habit accordion) */

@@ -30,12 +30,17 @@ function parseEisenhower(body?: string): Eisenhower | undefined {
 export function parseProject(lines: string[]): ProjectInfo {
   const sections = sectionMap(lines);
   const hardDeadline = pickSection(sections, /hard deadline/i);
+  // A "None / No / N/A / TBD" deadline section has no live date. Guard against a
+  // parenthetical or historical date *inside* that prose (e.g. a retired target
+  // like "None. The Aug-1 framing is retired (2026-06-22)…") being mistaken for a
+  // real deadline and surfaced as a false "overdue" on the card / detail / header.
+  const noHardDeadline = !!hardDeadline && /^\s*(none|no|n\/?a|tbd)\b/i.test(hardDeadline);
 
   return {
     goal: pickSection(sections, /^goal$/i),
     shippedDefinition: pickSection(sections, /shipped/i),
     hardDeadline,
-    hardDeadlineDate: extractLooseDate(hardDeadline),
+    hardDeadlineDate: noHardDeadline ? undefined : extractLooseDate(hardDeadline),
     currentPhase: pickSection(sections, /current phase/i),
     risks: pickSection(sections, /risk/i),
     techStack: pickSection(sections, /tech stack/i),
