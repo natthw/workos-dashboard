@@ -22,6 +22,26 @@ function setPrefCookie(key: string, value: string) {
   }
 }
 
+// Past a hard deadline, daysLeft goes negative — render an explicit "overdue"
+// state (flagged for a warning colour) instead of a broken-looking "-17d left".
+function fmtDays(daysLeft: number): { text: string; overdue: boolean } {
+  if (daysLeft < 0) return { text: `${Math.abs(daysLeft)}d overdue`, overdue: true };
+  if (daysLeft === 0) return { text: "due today", overdue: true };
+  return { text: `due in ${daysLeft}d`, overdue: false };
+}
+
+// A self-contained deadline indicator: the ⏳ icon (same as the header pill) makes
+// it read as a *deadline* rather than a task metric, so it stands on its own line
+// away from the task counts — answering "what is this / what does it belong to".
+function DeadlineChip({ daysLeft }: { daysLeft: number }) {
+  const d = fmtDays(daysLeft);
+  return (
+    <span className={`deadline-chip${d.overdue ? " overdue" : ""}`}>
+      <span aria-hidden="true">⏳</span> {d.text}
+    </span>
+  );
+}
+
 function pickActivePhase(rt?: RoadmapTasks): PhaseTasks | null {
   if (!rt) return null;
   const ph = rt.phases;
@@ -36,7 +56,7 @@ function pickActivePhase(rt?: RoadmapTasks): PhaseTasks | null {
 function CardChrome({ p }: { p: ProjectCard }) {
   return (
     <div style={{ marginBottom: 6 }}>
-      {p.isLead && <span className="tag-chip lead-chip">★ Lead</span>}
+      {p.isLead && <span className="tag-chip lead-chip">Urgent + important</span>}
       {p.parked && <span className="tag-chip parked-chip">Parked</span>}
     </div>
   );
@@ -74,10 +94,11 @@ function CalmCard({ p, onCrown }: { p: ProjectCard; onCrown: () => void }) {
       </div>
       <div className="calm-foot">
         <div className="ft-row">
-          <span>{p.done}/{p.total} {p.unit === "task" ? "tasks" : "phases"}{p.daysLeft != null ? ` · ${p.daysLeft}d left` : ""}</span>
-          <b style={{ color: p.accent }}>{p.pct}%</b>
+          <span>{p.done}/{p.total} {p.unit === "task" ? "tasks" : "phases"}</span>
+          {p.pct > 0 && <b style={{ color: p.accent }}>{p.pct}%</b>}
         </div>
         <div className="bar"><i style={{ width: `${p.pct}%`, background: p.accent }} /></div>
+        {p.daysLeft != null && <div className="foot-deadline"><DeadlineChip daysLeft={p.daysLeft} /></div>}
       </div>
       <CrownBtn p={p} onCrown={onCrown} />
     </div>
@@ -91,12 +112,15 @@ function BoldCard({ p, onCrown }: { p: ProjectCard; onCrown: () => void }) {
       <div className="bold-fade" />
       <div className="bold-body">
         <CardChrome p={p} />
-        <div className="bold-pct" style={{ color: p.accent }}>{p.pct}%</div>
+        {p.pct > 0
+          ? <div className="bold-pct" style={{ color: p.accent }}>{p.pct}%</div>
+          : <div className="bold-notstarted">Not started</div>}
         <div className="bold-name">
           <Link href={`/project/${p.slug}`} className="stretch-link">{p.name}</Link>
         </div>
         <div className="bar"><i style={{ width: `${p.pct}%`, background: p.accent }} /></div>
-        <div className="bold-meta">{p.done} of {p.total} {p.unit === "task" ? "tasks" : "phases"} done{p.daysLeft != null ? ` · ${p.daysLeft} days left` : ""}</div>
+        <div className="bold-meta">{p.done} of {p.total} {p.unit === "task" ? "tasks" : "phases"} done</div>
+        {p.daysLeft != null && <div className="foot-deadline"><DeadlineChip daysLeft={p.daysLeft} /></div>}
       </div>
       <CrownBtn p={p} onCrown={onCrown} />
     </div>
@@ -177,7 +201,10 @@ export default function Dashboard({
         <header className="topbar banner-topbar">
           <Link href="/" className="brand">WorkOS Dashboard<span className="brand-dot">.</span></Link>
           <span className="spacer" />
-          {view.deadline && <span className="pill"><span aria-hidden="true">⏳</span> <b>{view.deadline.daysLeft}d</b>&nbsp;· {view.deadline.label}</span>}
+          {view.deadline && (() => {
+            const d = fmtDays(view.deadline.daysLeft);
+            return <span className={`pill${d.overdue ? " pill-overdue" : ""}`}><span aria-hidden="true">⏳</span> <b>{d.text}</b>&nbsp;· {view.deadline.label}</span>;
+          })()}
           <span className="pill"><span aria-hidden="true">📋</span> {view.areas.length} areas</span>
         </header>
         <div className="banner-content">
@@ -195,13 +222,15 @@ export default function Dashboard({
       </div>
 
       <main id="main">
-        <div className="wrap">
-          <HabitsReminder habits={view.habits} vaultName={view.vaultName} />
-        </div>
-
-        {view.vision && (
+        {view.vision ? (
           <div className="wrap" style={{ marginTop: 16 }}>
-            <VisionBand vision={view.vision} />
+            <VisionBand vision={view.vision}>
+              <HabitsReminder habits={view.habits} vaultName={view.vaultName} />
+            </VisionBand>
+          </div>
+        ) : (
+          <div className="wrap" style={{ marginTop: 16 }}>
+            <HabitsReminder habits={view.habits} vaultName={view.vaultName} />
           </div>
         )}
 
@@ -211,20 +240,25 @@ export default function Dashboard({
             {feat ? (
               <aside className="focus" aria-label="Most important project">
                 <span className="focus-tag"><span aria-hidden="true">★</span> Most important</span>
-                <div className="focus-hero imgwrap">
-                  <RemoteImage src={feat.img} sizes="352px" />
-                  <span className="crown-badge" aria-hidden="true"><Crown uid={`feat-${feat.slug}`} /></span>
-                  <span className="cap"><span aria-hidden="true">📷</span> {feat.domain}{feat.parked ? " · parked" : ""}</span>
+                {/* Picture + title are one click target (stretch-link idiom, same
+                    as the project cards) → clicking the hero image opens the
+                    project, not just the small title link. */}
+                <div className="focus-head">
+                  <div className="focus-hero imgwrap">
+                    <RemoteImage src={feat.img} sizes="352px" />
+                    <span className="crown-badge" aria-hidden="true"><Crown uid={`feat-${feat.slug}`} /></span>
+                    <span className="cap"><span aria-hidden="true">📷</span> {feat.domain}{feat.parked ? " · parked" : ""}</span>
+                  </div>
+                  <Link className="focus-name stretch-link" href={`/project/${feat.slug}`}>{feat.name}</Link>
                 </div>
-                <Link className="focus-name" href={`/project/${feat.slug}`}>{feat.name}</Link>
                 {feat.blurb && <div className="focus-why" title={feat.blurb}>{feat.blurb}</div>}
-                <div className="bar-row"><span>Progress</span><b>{feat.pct}%</b></div>
+                <div className="bar-row"><span>Progress</span><b>{feat.pct > 0 ? `${feat.pct}%` : "Not started"}</b></div>
                 <div className="bar"><i style={{ width: `${feat.pct}%`, background: feat.accent }} /></div>
 
                 {activePhase && featRt ? (
                   <>
                     <div className="focus-sec">{activePhase.name} · {activePhase.doneCount}/{activePhase.total}</div>
-                    <TaskChecklist relPath={featRt.relPath} tasks={activePhase.tasks} />
+                    <TaskChecklist relPath={featRt.relPath} tasks={activePhase.tasks} limit={3} />
                   </>
                 ) : (
                   <div className="focus-why" style={{ marginTop: 12 }}>No checklist tasks in this project&rsquo;s roadmap yet.</div>

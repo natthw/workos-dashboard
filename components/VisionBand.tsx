@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { VisionView, VisionGoalView, VisionDomainGroup } from "@/lib/view";
 
 /**
@@ -10,10 +10,13 @@ import type { VisionView, VisionGoalView, VisionDomainGroup } from "@/lib/view";
  * expand its individual goals beneath the rail. Dormant domains (no goal) read
  * muted. Default state is one row → the daily work stays above the fold.
  */
-export function VisionBand({ vision }: { vision: VisionView }) {
+export function VisionBand({ vision, children }: { vision: VisionView; children?: ReactNode }) {
   const [open, setOpen] = useState<string | null>(null);
   const title = vision.year ? `Vision ${vision.year}` : "Vision";
-  const openGroup = open ? vision.domains.find((d) => d.domain === open) : undefined;
+  const openIndex = open ? vision.domains.findIndex((d) => d.domain === open) : -1;
+  const openGroup = openIndex >= 0 ? vision.domains[openIndex] : undefined;
+  // caret points at the clicked dial's centre so the panel reads as expanding from it
+  const caretLeft = openGroup ? ((openIndex + 0.5) / vision.domains.length) * 100 : 0;
 
   return (
     <section className="vision" aria-label={title}>
@@ -21,6 +24,13 @@ export function VisionBand({ vision }: { vision: VisionView }) {
         <div className="vision-id">
           <span className="vision-kicker">{title}</span>
           {vision.tagline && <span className="vision-tag">&ldquo;{vision.tagline}&rdquo;</span>}
+          <a
+            className="vision-plan"
+            href="obsidian://open?vault=KnowledgeOS&file=wiki%2Fsynthesis%2Fcareer-and-success-self-model"
+            title="Read the career & life self-model in KnowledgeOS"
+          >
+            read the plan ↗
+          </a>
         </div>
         <span className="vision-active">
           {vision.activeDomainCount}/{vision.totalDomainCount} domains active
@@ -36,11 +46,12 @@ export function VisionBand({ vision }: { vision: VisionView }) {
               key={d.domain}
               type="button"
               className={`vtile${dormant ? " dormant" : ""}${isOpen ? " open" : ""}`}
+              style={isOpen ? { borderColor: d.accent } : undefined}
               aria-expanded={isOpen}
               aria-label={
                 dormant
                   ? `${d.domain}: no goal set`
-                  : `${d.domain}: ${d.aggPct}% across ${d.goalCount} goals — show detail`
+                  : `${d.domain}: ${d.aggPct}% across ${d.goalCount} goal${d.goalCount !== 1 ? "s" : ""} — show detail`
               }
               disabled={dormant}
               onClick={() => setOpen(isOpen ? null : d.domain)}
@@ -64,14 +75,20 @@ export function VisionBand({ vision }: { vision: VisionView }) {
         })}
       </div>
 
-      {openGroup && <DomainDetail group={openGroup} />}
+      {openGroup && <DomainDetail group={openGroup} caretLeft={caretLeft} />}
+      {children && <div className="vision-habits">{children}</div>}
     </section>
   );
 }
 
-function DomainDetail({ group }: { group: VisionDomainGroup }) {
+function DomainDetail({ group, caretLeft }: { group: VisionDomainGroup; caretLeft: number }) {
   return (
-    <div className="vision-detail">
+    <div className="vision-detail" style={{ borderTopColor: group.accent }}>
+      <span
+        className="vision-caret"
+        style={{ left: `${caretLeft}%`, borderBottomColor: group.accent }}
+        aria-hidden="true"
+      />
       {group.goals.map((g, i) => <Goal key={i} g={g} />)}
     </div>
   );

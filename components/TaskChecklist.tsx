@@ -17,7 +17,7 @@ import type { ChunkTask } from "@/lib/roadmap-tasks";
  * Each row is a real <button role="checkbox">, so it is keyboard-focusable and
  * toggles on Space/Enter (WCAG 2.1.1) — the app's core write action.
  */
-export function TaskChecklist({ relPath, tasks: initial }: { relPath: string; tasks: ChunkTask[] }) {
+export function TaskChecklist({ relPath, tasks: initial, limit }: { relPath: string; tasks: ChunkTask[]; limit?: number }) {
   const [tasks, setTasks] = useState<ChunkTask[]>(initial);
   const [busy, setBusy] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -61,6 +61,10 @@ export function TaskChecklist({ relPath, tasks: initial }: { relPath: string; ta
 
   const openTasks = tasks.filter((t) => !t.checked);
   const doneTasks = tasks.filter((t) => t.checked);
+  // On the Most-important panel we show only the first few open tasks; the rest
+  // (and the completed history) live "in the ticket" — the full project page.
+  const shownOpen = limit != null ? openTasks.slice(0, limit) : openTasks;
+  const hiddenOpen = openTasks.length - shownOpen.length;
 
   const row = (t: ChunkTask) => (
     <button
@@ -81,9 +85,13 @@ export function TaskChecklist({ relPath, tasks: initial }: { relPath: string; ta
 
   return (
     <div className="next-list">
-      {openTasks.map(row)}
+      {shownOpen.map(row)}
 
-      {doneTasks.length > 0 && (
+      {hiddenOpen > 0 && (
+        <div className="todo-more">+{hiddenOpen} more in the roadmap ↓</div>
+      )}
+
+      {limit == null && doneTasks.length > 0 && (
         <div className="done-group">
           <button
             type="button"

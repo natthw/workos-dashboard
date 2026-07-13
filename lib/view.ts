@@ -3,6 +3,7 @@
 
 import type { RealmModel, Campaign, DomainKey, Cadence, StatusKey, VisionDoc } from "@/lib/workos/types";
 import { isParked } from "@/lib/workos/parsers/project";
+import { daysUntil } from "@/lib/workos/parsers/util";
 import { domainForName, DOMAIN_ORDER } from "@/lib/workos/domains";
 
 const DOMAIN_ACCENT: Record<DomainKey, string> = {
@@ -252,7 +253,10 @@ function daysUntilISO(iso?: string): number | undefined {
   if (!iso) return undefined;
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return undefined;
-  return Math.ceil((t - Date.now()) / 86400000);
+  // Delegate to the same calendar-day math the header's nearest-deadline uses
+  // (local-midnight to local-midnight), so a deadline reads identically on the
+  // card, the detail page, and the header pill — no off-by-one between surfaces.
+  return daysUntil(iso);
 }
 
 export interface Progress {
