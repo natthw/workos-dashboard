@@ -4,6 +4,7 @@ import { readRoadmapTasks, type PhaseTasks } from "@/lib/roadmap-tasks";
 import { TaskChecklist } from "@/components/TaskChecklist";
 import { FreshnessProbe } from "@/components/FreshnessProbe";
 import { RemoteImage } from "@/components/RemoteImage";
+import { Prose } from "@/components/Prose";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
@@ -12,12 +13,8 @@ export const dynamic = "force-dynamic";
 const STATUS_LABEL: Record<string, string> = { done: "Done", active: "Active", todo: "To do" };
 const STATUS_MARK: Record<string, string> = { done: "✓", active: "▶", todo: "" };
 
-// Deadline countdown text — kept in sync with the dashboard's DeadlineChip.
-function deadlineText(daysLeft: number): string {
-  if (daysLeft < 0) return `${Math.abs(daysLeft)}d overdue`;
-  if (daysLeft === 0) return "due today";
-  return `due in ${daysLeft}d`;
-}
+// Deadline copy comes from card.due (lib/view.ts) — the same rule the dashboard
+// card and the header pill render, so the three can't drift apart.
 
 function PhaseBlock({ relPath, ph }: { relPath: string; ph: PhaseTasks }) {
   const k = ph.statusKey;
@@ -93,11 +90,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
               {p.goal && (
                 <div className="why-card">
                   <div className="why-lbl">🎯 The goal</div>
-                  <div className="why-txt">{p.goal}</div>
+                  <div className="why-txt"><Prose text={p.goal} /></div>
                 </div>
               )}
 
-              <h3 className="sec-h">Roadmap{rt && rt.total ? ` · ${rt.done}/${rt.total} tasks` : ""}</h3>
+              {/* h2, not h3 — h1 above is the only heading before this one. */}
+              <h2 className="sec-h">Roadmap{rt && rt.total ? ` · ${rt.done}/${rt.total} tasks` : ""}</h2>
               <div className="write-note">✏️ Ticking a box writes straight back to <code>roadmap.md</code> in your vault (lock-safe).</div>
 
               {rt && (rt.subProjects?.length || rt.phases.length) ? (
@@ -134,21 +132,23 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
                   <div className="meta-row">
                     <span>Deadline</span>
                     <b>
-                      {card.daysLeft != null && (
+                      {card.due && (
                         <span className="deadline-line">
-                          <span className={`deadline-chip${card.daysLeft <= 0 ? " overdue" : ""}`}>
-                            <span aria-hidden="true">⏳</span> {deadlineText(card.daysLeft)}
+                          <span className={`deadline-chip ${card.due.tone}`}>
+                            <span aria-hidden="true">⏳</span>
+                            <span aria-hidden="true">{card.due.text}</span>
+                            <span className="vh">{card.due.srText}</span>
                           </span>
                         </span>
                       )}
-                      {p.hardDeadline}
+                      <Prose text={p.hardDeadline} />
                     </b>
                   </div>
                 )}
-                {p.currentPhase && <div className="meta-row"><span>Current phase</span><b>{p.currentPhase}</b></div>}
+                {p.currentPhase && <div className="meta-row"><span>Current phase</span><b><Prose text={p.currentPhase} /></b></div>}
                 {c.lastSessionDate && <div className="meta-row"><span>Last session</span><b>{c.lastSessionDate}</b></div>}
                 {c.sessionCount > 0 && <div className="meta-row"><span>Sessions</span><b>{c.sessionCount}</b></div>}
-                {p.techStack && <div className="meta-row"><span>Stack</span><b>{p.techStack}</b></div>}
+                {p.techStack && <div className="meta-row"><span>Stack</span><b><Prose text={p.techStack} /></b></div>}
                 {!p.hardDeadline && !p.currentPhase && !c.lastSessionDate && !p.techStack && (
                   <div className="mini-m">No metadata in the project&rsquo;s CLAUDE.md yet.</div>
                 )}

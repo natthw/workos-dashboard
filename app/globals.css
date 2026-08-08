@@ -4,7 +4,13 @@
   --bg:#f4ece0; --paper:#fbf6ee; --ink:#33271d; --ink-soft:#6b5848; --ink-faint:#7d6a58;
   --line:#e7dac8; --line-soft:#efe5d6;
   --accent:#d2724a; --accent-deep:#b85a35; --gold:#d9a441; --gold-deep:#c4882a; --good:#3a6b4f; --warn:#c0442e;
+  /* --warn and --accent-deep are surface colours that fail AA as small text
+     (4.68:1 and 4.29:1). These are their AA-safe text counterparts. */
+  --warn-ink:#a63c22; --accent-ink:#a04a28; --gold-ink:#8a6414;
   --serif:var(--font-spectral),'Spectral',Georgia,serif; --sans:var(--font-dm-sans),'DM Sans',system-ui,-apple-system,sans-serif;
+  /* mono is for vault truth only — file paths, line numbers, literal markdown
+     marks. Never as a "technical" costume. */
+  --mono:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
   --r:16px; --r-sm:10px;
   --sh:0 1px 2px rgba(80,55,35,.04),0 6px 20px rgba(80,55,35,.07); --sh-lg:0 8px 36px rgba(80,55,35,.16);
   /* domain accents */
@@ -18,6 +24,8 @@ a{color:inherit;text-decoration:none}
 h1,h2,h3{font-family:var(--serif);font-weight:600;margin:0;letter-spacing:-.01em}
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
 img{display:block}
+/* inline `code` inside prose — vault paths and filenames (see components/Prose.tsx) */
+code{font-family:var(--mono);font-size:.92em;background:var(--line-soft);padding:.1em .35em;border-radius:4px}
 .stripes{background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.05) 0 8px,transparent 8px 16px)}
 
 /* ---- accessibility primitives (focus, skip link, screen-reader text) ---- */
@@ -25,7 +33,7 @@ img{display:block}
 button:disabled{cursor:default}
 /* light ring on dark / image surfaces so it stays visible */
 .banner :focus-visible,.bold :focus-visible,.focus-hero :focus-visible,.d-hero :focus-visible{outline-color:#fff}
-.skip-link{position:absolute;left:-9999px;top:0;z-index:100;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:0 0 10px 0;font-size:13px;font-weight:600}
+.skip-link{position:absolute;left:-9999px;top:0;z-index:100;display:inline-flex;align-items:center;min-height:44px;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:0 0 10px 0;font-size:13px;font-weight:600}
 .skip-link:focus{left:0}
 .vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
@@ -40,11 +48,11 @@ button:disabled{cursor:default}
 
 .wrap{max-width:1600px;margin:0 auto;padding:0 48px}
 .topbar{max-width:1600px;margin:0 auto;padding:22px 48px 0;display:flex;align-items:center;gap:10px}
-.brand{font-family:var(--serif);font-weight:600;font-size:22px;color:var(--ink);cursor:pointer;letter-spacing:-.02em}
+.brand{display:inline-flex;align-items:center;min-height:44px;font-family:var(--serif);font-weight:600;font-size:22px;color:var(--ink);cursor:pointer;letter-spacing:-.02em}
 .brand-dot{color:var(--accent)}
 .crumb{color:var(--ink-faint);font-size:14px}
 .crumb b{color:var(--ink-soft);font-weight:500}
-.back{color:var(--ink-soft);font-size:14px;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;transition:background .15s}
+.back{color:var(--ink-soft);font-size:14px;display:inline-flex;align-items:center;min-height:44px;gap:6px;padding:6px 12px;border-radius:8px;transition:background .15s}
 .back:hover{background:var(--line-soft)}
 .spacer{flex:1}
 .pill{display:inline-flex;align-items:center;gap:7px;background:var(--paper);border:1px solid var(--line);padding:6px 13px;border-radius:30px;font-size:13px;font-weight:600;color:var(--ink-soft);box-shadow:var(--sh)}
@@ -68,29 +76,57 @@ main{animation:fadeup .35s ease}
 .banner-topbar{position:relative;width:100%}
 .banner-topbar .brand{color:#fff}
 .banner-content{position:relative;width:100%;max-width:1600px;margin:0 auto;padding:0 48px}
-.banner-in{position:relative;display:flex;align-items:center;gap:22px;padding:18px 30px;width:100%}
-.portrait{width:104px;height:124px;border-radius:12px;flex-shrink:0;border:3px solid rgba(255,255,255,.55);overflow:hidden;background:rgba(255,255,255,.12);box-shadow:0 10px 30px rgba(0,0,0,.4);position:relative}
-.portrait .em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:44px}
+/* The figure banner has two states. Collapsed is the default and costs one row:
+   portrait, quote, attribution — the encouragement, at a size that leaves the
+   projects above the fold. Opening it gives the scene photograph and the portrait
+   real height and reveals the legacy and the backdrop, because that photography
+   is content (it teaches you who this was), not wallpaper to be shrunk away.
+   The choice persists in workos.bannerOpen and is read server-side, so the first
+   paint is already in the right state. */
+.banner-in{position:relative;display:flex;align-items:center;gap:18px;padding:8px 30px 14px;width:100%}
+.portrait{width:52px;height:52px;border-radius:10px;flex-shrink:0;border:2px solid rgba(255,255,255,.5);overflow:hidden;background:rgba(255,255,255,.12);box-shadow:0 6px 18px rgba(0,0,0,.35);position:relative}
+.portrait .em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px}
 .b-txt{flex:1;color:#fff;min-width:0}
-.b-who{display:flex;align-items:baseline;gap:10px;margin-bottom:7px;flex-wrap:wrap}
+.b-who{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .b-name{font-family:var(--serif);font-size:15px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#fff}
-.b-years{font-size:12px;color:rgba(255,255,255,.62);letter-spacing:.04em}
-.b-quote{font-family:var(--serif);font-style:italic;font-size:18.5px;line-height:1.34;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.5);max-width:640px;margin-bottom:7px}
-.b-legacy{font-size:12.5px;color:rgba(255,255,255,.82);max-width:560px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.b-scene-cap{position:absolute;right:20px;bottom:13px;text-align:right;font-size:11px;color:rgba(255,255,255,.55);letter-spacing:.04em;font-style:italic}
-/* right:48px aligns the button to the same 48px content gutter as the topbar
-   pills above it, so the whole top-right control cluster shares one edge */
-.spark{position:absolute;right:48px;top:16px;display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.36);color:#fff;padding:8px 16px;border-radius:30px;font-size:13px;font-weight:500;backdrop-filter:blur(8px);transition:background .18s}
+.b-years{font-size:12px;color:rgba(255,255,255,.72);letter-spacing:.04em}
+.b-quote{font-family:var(--serif);font-style:italic;font-size:16.5px;line-height:1.35;color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.5);max-width:860px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+/* Same 0fr/1fr reveal as .done-wrap, but deliberately NOT transitioned: the
+   portrait resize and the flex align-items switch land in the same frame, and
+   Chrome then leaves the fr track stuck at its resolved px value on the way back
+   down. The state is server-rendered from a cookie anyway, so on a normal load
+   there is no transition to miss — only the caret animates. */
+.b-extra{display:grid;grid-template-rows:0fr}
+.b-extra-in{overflow:hidden;min-height:0}
+.b-legacy{font-size:12.5px;color:rgba(255,255,255,.86);max-width:620px;line-height:1.55;padding-top:9px}
+.b-scene-cap{font-size:11px;color:rgba(255,255,255,.68);letter-spacing:.04em;font-style:italic;padding-top:7px}
+.b-controls{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.b-more{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 15px;border-radius:30px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);color:#fff;font-size:12.5px;font-weight:500;transition:background .18s}
+.b-more:hover{background:rgba(255,255,255,.26)}
+.b-more-caret{font-size:10px;transition:transform .24s ease}
+.spark{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.36);color:#fff;min-height:44px;padding:0 16px;border-radius:30px;font-size:13px;font-weight:500;backdrop-filter:blur(8px);transition:background .18s}
 .spark:hover{background:rgba(255,255,255,.28)}
+
+/* expanded: the photography gets its room back */
+.banner-hero.open .banner-in{align-items:flex-start;gap:22px;padding:12px 30px 20px}
+.banner-hero.open .portrait{width:104px;height:124px;border-radius:12px;border-width:3px}
+.banner-hero.open .portrait .em{font-size:44px}
+.banner-hero.open .b-quote{font-size:18.5px;-webkit-line-clamp:3;max-width:640px;margin-bottom:7px}
+.banner-hero.open .b-extra{grid-template-rows:1fr}
+.banner-hero.open .b-more-caret{transform:rotate(180deg)}
+@media (prefers-reduced-motion: reduce){.b-more-caret{transition:none}}
 
 .split{display:grid;grid-template-columns:352px 1fr;gap:26px;padding-bottom:20px;align-items:start}
 .split.solo{grid-template-columns:1fr}
 
 /* focus panel = NOW.md */
-.focus{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--sh);position:sticky;top:18px}
-/* a long roadmap scrolls INSIDE the Most-Important panel instead of growing the
-   page, so the whole dashboard stays on one screen */
-.focus .next-list{max-height:30vh;overflow-y:auto;scrollbar-width:thin;scrollbar-gutter:stable;padding-right:4px}
+/* A sticky element taller than the viewport can't actually pin — it just scrolls
+   away, taking its "always available" CTA with it. Cap it to the viewport and let
+   the panel itself be the one scroller. */
+.focus{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--sh);position:sticky;top:18px;max-height:calc(100vh - 36px);overflow-y:auto;scrollbar-width:thin;scrollbar-gutter:stable}
+/* The panel above is the scroller now. A second nested scroll region here meant
+   the wheel got captured mid-page over the checklist. */
+.focus .next-list{padding-right:4px}
 .focus-tag{display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#4a3208;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px 5px 10px;border-radius:30px;margin-bottom:14px;box-shadow:0 2px 9px rgba(201,136,42,.35)}
 /* positioning context for the stretch-link: the title's ::after covers this whole
    wrapper (hero image + title), so clicking the picture opens the project too */
@@ -98,7 +134,7 @@ main{animation:fadeup .35s ease}
 .focus-hero{height:150px;border-radius:var(--r-sm);margin-bottom:14px;position:relative;overflow:hidden;background:linear-gradient(135deg,#d8c5a8,#c2a982)}
 .focus-hero .ph{transition:transform .35s cubic-bezier(.2,.8,.2,1)}
 .focus-head:hover .focus-hero .ph{transform:scale(1.045)}
-.focus-hero .cap{position:absolute;left:10px;bottom:8px;font-size:10.5px;color:#fff;background:rgba(0,0,0,.34);padding:3px 9px;border-radius:20px;backdrop-filter:blur(3px);z-index:3}
+.focus-hero .cap{position:absolute;left:10px;bottom:8px;font-size:11px;color:#fff;background:rgba(0,0,0,.52);padding:3px 9px;border-radius:20px;backdrop-filter:blur(3px);z-index:3}
 .focus-name{font-family:var(--serif);font-size:20px;font-weight:600;cursor:pointer;line-height:1.28;margin-bottom:8px}
 .focus-name:hover{color:var(--accent-deep)}
 .focus-why{font-size:12.5px;color:var(--ink-soft);font-style:italic;font-family:var(--serif);line-height:1.55;margin-bottom:15px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
@@ -117,8 +153,8 @@ main{animation:fadeup .35s ease}
 .col-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
 .col-hd h2{font-size:20px}
 .toggle{display:flex;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:3px}
-.toggle button{padding:6px 15px;border-radius:7px;font-size:13px;font-weight:600;color:var(--ink-faint);transition:all .15s}
-.toggle button.on{background:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(210,114,74,.35)}
+.toggle button{display:inline-flex;align-items:center;min-height:44px;padding:6px 15px;border-radius:7px;font-size:13px;font-weight:600;color:var(--ink-soft);transition:all .15s}
+.toggle button.on{background:var(--accent-deep);color:#fff;box-shadow:0 2px 8px rgba(210,114,74,.35)}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px}
 
 .calm{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;cursor:pointer;box-shadow:var(--sh);transition:transform .16s,box-shadow .16s;position:relative;display:flex;flex-direction:column}
@@ -151,20 +187,30 @@ main{animation:fadeup .35s ease}
 .ft-row{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px;color:var(--ink-faint);margin-bottom:6px}
 .ft-row b{font-family:var(--serif);font-size:14px}
 
-.tag-chip{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:5px;display:inline-block}
+.tag-chip{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:5px;display:inline-block}
 /* Eisenhower category (urgent+important) — accent, NOT gold: the single gold ★
    crown ("Most important") stays the one primacy signal, so the two never clash. */
 .lead-chip{background:var(--accent);color:#fff}
-.parked-chip{background:var(--line);color:var(--ink-faint)}
+.parked-chip{background:var(--line);color:var(--ink-soft)}
 /* deadline as its own labelled chip (⏳ = deadline, matching the header pill) so
    it reads as a due-date status, not a task metric — with an explicit overdue
    warning treatment, never a negative "-Nd left". */
+/* Three deadline tones, one vocabulary (see deadlineLabel() in lib/view.ts):
+   quiet = a date worth knowing · soon = act now · warn = genuinely late.
+   `warn` is deliberately the rarest of the three — it only fires inside the
+   14-day grace window, so when it does appear it still means something. */
 .deadline-chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--ink-soft);background:var(--line-soft);border-radius:20px;padding:2px 9px;white-space:nowrap}
-.deadline-chip.overdue{color:var(--warn);background:rgba(192,68,46,.1)}
+.deadline-chip.quiet{color:var(--ink-soft);background:var(--line-soft)}
+.deadline-chip.soon{color:var(--accent-ink);background:rgba(210,114,74,.12)}
+.deadline-chip.warn{color:var(--warn-ink);background:rgba(192,68,46,.1)}
 .foot-deadline{margin-top:9px}
 .deadline-line{display:block;margin-bottom:6px}
-.pill-overdue{border-color:var(--warn)}
-.pill-overdue b{color:var(--warn)}
+/* header pill carries the same three tones as the deadline chip */
+.pill-quiet b{color:var(--ink-soft)}
+.pill-soon{border-color:var(--accent)}
+.pill-soon b{color:var(--accent-ink)}
+.pill-warn{border-color:var(--warn)}
+.pill-warn b{color:var(--warn-ink)}
 
 .cr{display:block}
 /* the Most-important card's crown gently bobs at rest (the crownbob keyframe was
@@ -176,11 +222,16 @@ main{animation:fadeup .35s ease}
   filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 3px 5px rgba(43,39,34,.28))}
 .focus-head:hover .crown-badge{animation:crownwiggle .5s ease}
 .crown-btn{position:absolute;top:11px;right:11px;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.92);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;z-index:6;box-shadow:0 1px 5px rgba(0,0,0,.1);transition:transform .15s,background .15s;padding:6px}
+/* 34px is a deliberate visual weight (the badge was toned down on purpose), so
+   the hit area is extended to 44x44 invisibly rather than growing the circle. */
+.crown-btn::after{content:"";position:absolute;inset:-5px;border-radius:50%}
 .crown-btn .cr{filter:grayscale(.35) opacity(.7);transition:filter .15s}
 .crown-btn:hover,.crown-btn:focus-visible{transform:scale(1.12)}
 .crown-btn:hover .cr,.crown-btn:focus-visible .cr{filter:none;animation:crownwiggle .5s ease}
 /* "Now" — pinned to the very top of the page, slow horizontal ticker */
-.now-ticker{position:sticky;top:0;z-index:60;display:flex;align-items:stretch;background:linear-gradient(90deg,var(--accent-deep),var(--accent));color:#fff;box-shadow:0 2px 12px rgba(80,55,35,.18)}
+/* The page's single most prominent statement was white on --accent at 3.36:1 —
+   and moving. Deepened so the whole gradient clears AA (4.61:1 at its lightest). */
+.now-ticker{position:sticky;top:0;z-index:60;display:flex;align-items:stretch;background:linear-gradient(90deg,#9c4526,var(--accent-deep));color:#fff;box-shadow:0 2px 12px rgba(80,55,35,.18)}
 .now-ticker-label{display:flex;align-items:center;gap:8px;flex-shrink:0;padding:9px 16px 9px 48px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;background:rgba(0,0,0,.16)}
 .now-live{width:8px;height:8px;border-radius:50%;background:#fff;animation:nowpulse 2s ease-out infinite}
 @keyframes nowpulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.65)}70%{box-shadow:0 0 0 7px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}
@@ -204,11 +255,11 @@ main{animation:fadeup .35s ease}
    how-to in a connected panel, click the active tab again to collapse. */
 .habit-tabs{margin-top:14px}
 .ht-bar{display:flex;align-items:flex-end;flex-wrap:wrap;gap:3px;border-bottom:1px solid var(--line)}
-.ht-lead{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-deep);margin-right:6px;padding-bottom:9px}
-.ht-tab{display:inline-flex;align-items:center;gap:6px;max-width:220px;margin-bottom:-1px;padding:8px 13px;border:1px solid transparent;border-bottom:none;border-radius:9px 9px 0 0;background:transparent;color:var(--ink-soft);font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,color .15s}
+.ht-lead{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink);margin-right:6px;padding-bottom:9px}
+.ht-tab{display:inline-flex;align-items:center;gap:6px;max-width:220px;min-height:44px;margin-bottom:-1px;padding:8px 13px;border:1px solid transparent;border-bottom:none;border-radius:9px 9px 0 0;background:transparent;color:var(--ink-soft);font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,color .15s}
 .ht-tab:hover{background:rgba(251,246,238,.45);color:var(--ink-soft)}
 .ht-tab.active{background:rgba(251,246,238,.62);backdrop-filter:blur(3px);color:var(--ink);border-color:var(--line);font-weight:600}
-.ht-star{color:var(--gold-deep);font-size:11px;flex-shrink:0}
+.ht-star{color:var(--gold-ink);font-size:11px;flex-shrink:0}
 .ht-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ht-panel{background:rgba(251,246,238,.62);backdrop-filter:blur(3px);border:1px solid var(--line);border-top:none;border-radius:0 0 var(--r-sm) var(--r-sm);padding:13px 16px;animation:revealDown .6s cubic-bezier(.2,.8,.2,1)}
 .ht-panel-hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
@@ -242,7 +293,7 @@ main{animation:fadeup .35s ease}
 .why-card{background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:var(--r-sm);padding:15px 17px;margin-bottom:24px}
 .why-lbl{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-deep);margin-bottom:5px}
 .why-txt{font-family:var(--serif);font-style:italic;font-size:15px;line-height:1.6;color:var(--ink)}
-.d-right{position:sticky;top:18px;display:flex;flex-direction:column;gap:16px}
+.d-right{position:sticky;top:18px;display:flex;flex-direction:column;gap:16px;max-height:calc(100vh - 36px);overflow-y:auto;scrollbar-width:thin;scrollbar-gutter:stable}
 .d-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--sh)}
 .d-pct{font-family:var(--serif);font-size:42px;font-weight:600;line-height:1}
 .d-pct-sub{font-size:12px;color:var(--ink-faint);margin:2px 0 14px}
@@ -251,7 +302,7 @@ main{animation:fadeup .35s ease}
 .meta-row span{color:var(--ink-faint)}
 /* values left-align (was right): long wrapping values like Deadline/Stack read as
    clean ragged-right text instead of a hard-to-scan right-aligned block */
-.meta-row b{color:var(--ink);font-weight:600;text-align:left;min-width:0;max-width:64%}
+.meta-row b{color:var(--ink);font-weight:600;text-align:left;min-width:0;max-width:64%;overflow-wrap:break-word}
 .sec-h{font-size:18px;margin:4px 0 14px}
 
 .phase{display:flex;align-items:flex-start;gap:13px;padding:14px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);margin-bottom:9px;transition:box-shadow .15s,border-color .15s}
@@ -320,28 +371,65 @@ main{animation:fadeup .35s ease}
 /* Someday / parked projects → collapsed dropdown (the not-urgent/not-important
    Eisenhower quadrant). Native <details>: closed by default, no client JS. */
 .someday-fold{margin-top:22px}
-.someday-fold>summary{display:flex;align-items:center;gap:8px;padding:10px 2px;font-size:12.5px;font-weight:600;color:var(--ink-faint);cursor:pointer;list-style:none;transition:color .15s}
+.someday-fold>summary{display:flex;align-items:center;gap:8px;min-height:44px;padding:10px 2px;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;list-style:none;transition:color .15s}
 .someday-fold>summary::-webkit-details-marker{display:none}
 .someday-fold>summary:hover{color:var(--ink-soft)}
 .someday-caret{font-size:10px;transition:transform .22s ease}
 .someday-fold[open]>summary .someday-caret{transform:rotate(90deg)}
-.someday-count{margin-left:auto;background:var(--line-soft);color:var(--ink-faint);border-radius:20px;padding:1px 9px;font-size:11.5px;font-weight:600}
+.someday-count{margin-left:auto;background:var(--line-soft);color:var(--ink-soft);border-radius:20px;padding:1px 9px;font-size:11.5px;font-weight:600}
 @media (prefers-reduced-motion: reduce){.someday-caret{transition:none}}
 
-/* confirmation toast (pin a project) */
+/* confirmation toast (pin a project) — a PREFERENCE changed, nothing on disk.
+   Vault writes get their own surface below, deliberately weighted heavier. */
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:30px;font-size:13px;font-weight:600;box-shadow:var(--sh-lg);z-index:50;animation:toastpop .26s ease}
+
+/* ---- write receipts: proof that a checkbox reached the vault ----
+   Bottom-right ledger corner, newest nearest the thumb. Shows the record the
+   API journalled — path, 1-based line, and the literal `[ ] → [x]` marks — so
+   the confirmation is the substrate itself rather than a generic "Saved". */
+@keyframes receiptin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.receipts{position:fixed;right:20px;bottom:20px;z-index:60;display:flex;flex-direction:column-reverse;gap:8px;width:min(384px,calc(100vw - 40px));pointer-events:none}
+.receipt{pointer-events:auto;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 13px;box-shadow:var(--sh-lg);animation:receiptin .26s cubic-bezier(.2,.8,.2,1)}
+.receipt-failed{border-color:var(--warn);background:#fdf1ed}
+.rc-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.rc-path{font-family:var(--mono);font-size:11px;color:var(--ink-soft);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc-line{color:var(--ink-faint)}
+.rc-stamp{font-size:11px;color:var(--ink-faint);flex-shrink:0;letter-spacing:.02em}
+.receipt-failed .rc-stamp{color:var(--warn-ink);font-weight:600}
+.rc-diff{display:flex;align-items:center;gap:9px;margin:0 0 4px;font-family:var(--mono);font-size:13px;color:var(--ink-soft)}
+.rc-mark{letter-spacing:-.02em}
+.rc-mark-new{color:var(--good);font-weight:600}
+.rc-arrow{color:var(--ink-faint);font-family:var(--sans)}
+.rc-text{margin:0;font-size:12.5px;line-height:1.45;color:var(--ink);overflow-wrap:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.receipt-failed .rc-text{color:var(--ink-soft)}
+.rc-reason{margin:0 0 6px;font-size:12.5px;line-height:1.45;color:var(--warn-ink);overflow-wrap:break-word}
+.rc-actions{display:flex;gap:8px;margin-top:9px}
+.rc-btn{min-height:44px;padding:0 15px;border-radius:8px;border:1px solid var(--line);background:var(--paper);font-size:12.5px;font-weight:600;color:var(--ink-soft);transition:background .15s,border-color .15s}
+.rc-btn:hover{background:var(--line-soft)}
+.rc-btn-primary{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.rc-btn-primary:hover{background:#241c14;border-color:#241c14}
+@media (max-width:880px){
+  .receipts{left:12px;right:12px;bottom:12px;width:auto}
+}
+
+/* a row mid-write stays focusable and clickable — only its own line is guarded.
+   `disabled` would blur the element to <body> and drop keyboard position. */
+.todo-row.writing{opacity:.78}
+.todo-row.writing .box{border-color:var(--accent)}
+.todo-row.failed .box{border-color:var(--warn)}
+.todo-row.failed .todo-t{color:var(--warn-ink)}
 
 /* areas: compact chips (name + open-todo count + stale-age badge); click opens a
    connected detail panel (goals.md metrics, file count, last-touched) below the row */
 .area-row{display:flex;flex-wrap:wrap;gap:8px}
-.area-chip{display:inline-flex;align-items:center;gap:7px;background:var(--paper);border:1px solid var(--line);border-radius:30px;padding:6px 13px;font-size:13px;color:var(--ink-faint);box-shadow:var(--sh);cursor:pointer;font-family:inherit}
+.area-chip{display:inline-flex;align-items:center;min-height:44px;gap:7px;background:var(--paper);border:1px solid var(--line);border-radius:30px;padding:6px 13px;font-size:13px;color:var(--ink-faint);box-shadow:var(--sh);cursor:pointer;font-family:inherit}
 .area-chip:hover{border-color:var(--ink-faint)}
 .area-chip.has-open{color:var(--ink)}
 .area-chip.open{border-color:var(--accent);color:var(--ink)}
 .area-chip.stale{border-style:dashed}
 .area-chip-name{font-weight:500}
-.area-chip-count{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;padding:0 5px;background:var(--accent);color:#fff;border-radius:20px;font-size:11px;font-weight:700;line-height:1}
-.area-chip-age{font-size:11px;font-weight:700;color:#b5852e}
+.area-chip-count{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;padding:0 5px;background:var(--accent-deep);color:#fff;border-radius:20px;font-size:11px;font-weight:700;line-height:1}
+.area-chip-age{font-size:11px;font-weight:700;color:var(--gold-ink)}
 .area-panel{margin-top:10px;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--sh)}
 .area-panel-meta{font-size:12px;color:var(--ink-soft);margin-bottom:10px}
 .area-goal{margin-top:8px}
@@ -367,7 +455,7 @@ main{animation:fadeup .35s ease}
 .vision-id{display:flex;align-items:baseline;gap:12px;min-width:0}
 .vision-kicker{font-family:var(--serif);font-size:14px;font-weight:600;color:var(--ink);white-space:nowrap}
 .vision-tag{font-family:var(--serif);font-style:italic;font-size:12px;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vision-plan{font-family:var(--serif);font-style:italic;font-size:11.5px;color:var(--accent-deep);white-space:nowrap;flex-shrink:0;opacity:.85;transition:opacity .15s}
+.vision-plan{display:inline-flex;align-items:center;min-height:44px;font-family:var(--serif);font-style:italic;font-size:11.5px;color:var(--accent-ink);white-space:nowrap;flex-shrink:0;transition:color .15s}
 .vision-plan:hover{opacity:1;text-decoration:underline}
 /* text sits directly on the painting now — a light cream halo keeps it legible */
 .vision-kicker,.vision-tag,.vision-active,.vision-plan,.ht-lead,.ht-tab{text-shadow:0 0 8px rgba(251,246,238,.96),0 1px 2px rgba(251,246,238,.96)}
@@ -395,7 +483,12 @@ main{animation:fadeup .35s ease}
 /* detail panel expands from the clicked dial: a caret points up to that card, and
    the accent top-border + the dial's dark text complete the link. frosted so the
    painting still reads. */
-.vision-detail{position:relative;margin-top:10px;padding:14px 16px;border:1px solid var(--line);border-top:3px solid var(--line);border-radius:var(--r-sm);background:rgba(251,246,238,.6);backdrop-filter:blur(3px);display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:13px 28px;animation:revealDown .6s cubic-bezier(.2,.8,.2,1)}
+/* The detail floats instead of expanding the band. Inline, it pushed every
+   project card 99px down the page — you clicked to read one number and your work
+   left the screen. A zero-height anchor keeps the popover attached to the rail
+   while costing the layout nothing. */
+.vision-detail-anchor{position:relative;height:0}
+.vision-detail{position:absolute;top:10px;left:0;right:0;z-index:24;padding:14px 16px;border:1px solid var(--line);border-top:3px solid var(--line);border-radius:var(--r-sm);background:var(--paper);box-shadow:var(--sh-lg);display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:13px 28px;animation:revealDown .32s cubic-bezier(.2,.8,.2,1)}
 .vision-caret{position:absolute;top:-8px;transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:8px solid var(--line)}
 .vision-goal-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
 .vision-goal-label{font-size:13.5px;color:var(--ink);min-width:0}
@@ -426,8 +519,16 @@ main{animation:fadeup .35s ease}
   .topbar{flex-wrap:wrap}
   .back,.pill{min-height:44px}
   .crumb b{max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom}
-  /* banner: stack portrait above the text; hide the overlapping caption */
-  .banner-in{flex-direction:column;align-items:flex-start;gap:16px;padding:22px 20px 56px}
-  .b-quote{font-size:19px}
-  .b-scene-cap{display:none}
+  /* The Now bar sets its own 48px gutters, so at ≤880px the topmost element on
+     the page was the one that didn't line up with anything under it. */
+  .now-ticker-label{padding-left:24px}
+  .now-ticker-viewport{padding-right:24px}
+  /* banner: collapsed stays one row (avatar + quote) with the controls wrapping
+     beneath; only the expanded state stacks. .banner-content already supplies the
+     24px gutter, so the row adds none. */
+  .banner-in{flex-wrap:wrap;gap:12px;padding:6px 0 12px}
+  .b-quote{font-size:15.5px}
+  .b-controls{width:100%}
+  .banner-hero.open .banner-in{flex-direction:column;align-items:flex-start;gap:14px;padding:10px 0 18px}
+  .banner-hero.open .b-quote{font-size:18px}
 }

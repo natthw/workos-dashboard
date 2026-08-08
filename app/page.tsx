@@ -15,6 +15,10 @@ export default async function Page() {
   const jar = await cookies();
   const initialStyle = jar.get("workos.cardStyle")?.value === "bold" ? "bold" : "calm";
   const initialFeatured = jar.get("workos.featured")?.value;
+  // The figure banner is compact by default so the projects sit above the fold.
+  // Opening it (portrait, scene, legacy at full size) is a stored preference —
+  // if you want the whole thing every morning, you expand it once.
+  const initialBannerOpen = jar.get("workos.bannerOpen")?.value === "1";
 
   const realm = scanRealm();
   const initialFigure = dailyFigureIndex(Date.now());
@@ -37,6 +41,7 @@ export default async function Page() {
         tasksBySlug={tasksBySlug}
         initialStyle={initialStyle}
         initialFeatured={initialFeatured}
+        initialBannerOpen={initialBannerOpen}
       />
     </>
   );

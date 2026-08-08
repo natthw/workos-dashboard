@@ -10,9 +10,18 @@ function tabTitle(label: string): string {
 
 /**
  * Daily habits as a compact, Chrome-style tab strip. The resting state is just
- * the one-line tab row, so the projects below sit above the fold; clicking a tab
- * opens its how-to in a connected panel (Chrome-style), and clicking the active
- * tab again collapses it. Owns its own active-tab state — nothing else needs it.
+ * the one-line row, so the projects below sit above the fold; clicking one opens
+ * its how-to in a connected panel, and clicking it again collapses it. Owns its
+ * own active state — nothing else needs it.
+ *
+ * Semantically these are DISCLOSURES, not ARIA tabs. The markup used to claim
+ * role="tablist"/"tab"/"tabpanel", which promises a keyboard contract this
+ * component never implemented: no roving tabindex, no arrow-key navigation, no
+ * selected tab (all four reported aria-selected="false"), and an aria-controls
+ * pointing at a panel id that doesn't exist while the strip is closed. A screen
+ * reader announced "tab list, 4 items" and then arrow keys did nothing. Buttons
+ * with aria-expanded describe what this actually is, and Tab/Enter — which the
+ * component does support — is the correct contract for it.
  */
 export function HabitsReminder({ habits, vaultName }: { habits: HabitView[]; vaultName: string }) {
   const [active, setActive] = useState<string | null>(null);
@@ -25,8 +34,8 @@ export function HabitsReminder({ habits, vaultName }: { habits: HabitView[]; vau
 
   return (
     <div className="habit-tabs">
-      <div className="ht-bar" role="tablist" aria-label="Daily habits">
-        <span className="ht-lead">📓 Daily habits</span>
+      <div className="ht-bar" role="group" aria-label="Daily habits">
+        <span className="ht-lead" aria-hidden="true">📓 Daily habits</span>
         {habits.map((h, i) => {
           const isActive = i === activeIndex;
           return (
@@ -34,11 +43,13 @@ export function HabitsReminder({ habits, vaultName }: { habits: HabitView[]; vau
               key={h.label}
               id={`ht-tab-${i}`}
               type="button"
-              role="tab"
-              aria-selected={isActive}
-              aria-controls="ht-panel"
+              aria-expanded={isActive}
+              aria-controls={isActive ? "ht-panel" : undefined}
               className={`ht-tab ${isActive ? "active" : ""}`}
               onClick={() => setActive(isActive ? null : h.label)}
+              // The visible label is truncated to the habit's short name; the
+              // accessible name carries the whole thing, including the cadence.
+              aria-label={`${h.label} · ${h.cadence}${h.keystone ? " · keystone habit" : ""}`}
               title={h.label}
             >
               {h.keystone && <span className="ht-star" aria-hidden="true">★</span>}
@@ -49,7 +60,7 @@ export function HabitsReminder({ habits, vaultName }: { habits: HabitView[]; vau
       </div>
 
       {current && (
-        <div className="ht-panel" id="ht-panel" role="tabpanel" aria-labelledby={`ht-tab-${activeIndex}`}>
+        <div className="ht-panel" id="ht-panel" role="region" aria-labelledby={`ht-tab-${activeIndex}`}>
           <div className="ht-panel-hd">
             <b>{current.label}</b>
             <span className="ht-panel-cad">{current.cadence}</span>
