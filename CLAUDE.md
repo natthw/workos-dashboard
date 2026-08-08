@@ -116,6 +116,21 @@ without updating every consumer at once.
 - **Windows paths.** `WORKOS_PATH` may contain spaces and backslashes; everything is normalized to
   forward slashes via `paths.ts`. Preserve that.
 
+## Open UI work — read before changing the dashboard UI
+
+**`docs/SPEC-ui-refinement.md`** is the current spec for the home surface. It is self-contained
+(requirements with acceptance criteria → design → ordered tasks) and carries three things you cannot
+re-derive from the code:
+
+1. **Locked owner decisions** — e.g. the figure banner's photography is *content, not decoration*;
+   the cream/ink palette encodes past→future but does **not** belong in the banner; this round is
+   **refinement, not redesign**. Do not relitigate these.
+2. **Measured geometry baselines** and the design-health trend (22 → 24 / 40; snapshots in
+   `.impeccable/critique/`).
+3. **A mandatory verification methodology** encoding two real measurement mistakes — contrast over an
+   image backdrop must be canvas-sampled (not measured against the nearest opaque ancestor), and
+   non-text contrast (borders, focus rings) must be checked separately from text.
+
 ## Knowledge graph
 
 A graphify knowledge graph of this codebase lives in `graphify-out/` (`graph.html`,

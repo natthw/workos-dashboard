@@ -29,7 +29,7 @@ const DOMAIN_IMG: Record<DomainKey, string> = {
 // Per-project overrides (closest verified match to each project's theme).
 const PROJECT_IMG: Record<string, string> = {
   Portfolio_Management_System: UN("1517180102446-f3ece451e9d8"), // a portfolio dashboard on screen
-  Wealth_Land: UN("1518770660439-4636190af475"),               // abstract tech (gamified engine)
+  MoonPort_City: UN("1518770660439-4636190af475"),             // abstract tech (gamified engine)
   LSEG_Soiree_Cocktail_Booth: UN("1509669803555-fd5edd8d5a41"),// bartender shaking a cocktail shaker
   Cosmic_Capsule_Voyage: UN("1543783207-ec64e4d95325"),        // a voyage
 };
@@ -52,6 +52,8 @@ export interface ProjectCard {
   status?: string; // work-state: active | parked | someday | closing-out | done
   deadline?: string;
   daysLeft?: number;
+  /** Rendered deadline copy + tone. Computed once here so every surface agrees. */
+  due?: DeadlineLabel;
   currentPhase?: string;
   lastSession?: string;
 }
@@ -143,7 +145,7 @@ export interface DashView {
   areas: AreaView[];
   habits: HabitView[];
   vision?: VisionView;
-  deadline?: { label: string; date: string; daysLeft: number };
+  deadline?: { label: string; date: string; daysLeft: number; due: DeadlineLabel };
   counts: { inbox: number; resources: number; archive: number };
   scannedAt: string;
   vaultName: string;
@@ -259,6 +261,89 @@ function daysUntilISO(iso?: string): number | undefined {
   return daysUntil(iso);
 }
 
+// --- deadlines ---------------------------------------------------------------
+
+/**
+ * How loudly a deadline should read.
+ *  soon  — act on this now (accent)
+ *  warn  — genuinely late, and recently enough to still be actionable (red)
+ *  quiet — a date worth knowing, carrying no pressure (neutral ink)
+ */
+export type DeadlineTone = "soon" | "warn" | "quiet";
+
+export interface DeadlineLabel {
+  /** Terse form for the chip, e.g. `due in 6d`. */
+  text: string;
+  /** Spoken form, e.g. `due in 6 days` — "6d" reads badly aloud. */
+  srText: string;
+  tone: DeadlineTone;
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** `2026-06-26` → `26 Jun` (plus the year when it isn't the current one). */
+function shortDate(iso: string, today = new Date()): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  const base = `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  return d.getFullYear() === today.getFullYear() ? base : `${base} ${d.getFullYear()}`;
+}
+
+/** A project whose own Eisenhower block says the work is wrapping up or over. */
+function isClosed(status?: string): boolean {
+  const s = status?.toLowerCase();
+  return s === "done" || s === "closing-out";
+}
+
+/** Past this many days late, an overdue count stops informing and starts shaming. */
+export const OVERDUE_GRACE_DAYS = 14;
+
+/**
+ * One deadline vocabulary for every surface — the header pill, the project card,
+ * and the detail page all render this, so they can never disagree.
+ *
+ * The rule that matters: a countdown only means something while someone is still
+ * counting. Once a project's status says the work is done or closing out, or the
+ * date fell far enough behind that the number is no longer actionable, the label
+ * drops to the one fact that stays true — when it was due. An alarm that can only
+ * grow ("41d overdue", then 300d) stops being read, and takes the credibility of
+ * every real deadline with it.
+ */
+export function deadlineLabel(
+  daysLeft: number,
+  opts: { isoDate?: string; status?: string } = {},
+): DeadlineLabel {
+  const { isoDate, status } = opts;
+  const on = isoDate ? shortDate(isoDate) : undefined;
+  const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
+
+  // The vault says this project is finished or closing out — the date is history,
+  // not a target. State it and stop.
+  if (isClosed(status)) {
+    const t = on ? (daysLeft < 0 ? `was due ${on}` : `due ${on}`) : daysLeft < 0 ? "past its date" : "still ahead";
+    return { text: t, srText: t, tone: "quiet" };
+  }
+
+  if (daysLeft < 0) {
+    const late = Math.abs(daysLeft);
+    if (late <= OVERDUE_GRACE_DAYS) {
+      return { text: `${late}d overdue`, srText: `${days(late)} overdue`, tone: "warn" };
+    }
+    // Long past and still open. Show when, not how far behind — the size of the
+    // number was never the useful part.
+    const t = on ? `was due ${on}` : "past its date";
+    return { text: t, srText: t, tone: "quiet" };
+  }
+
+  if (daysLeft === 0) return { text: "due today", srText: "due today", tone: "soon" };
+  if (daysLeft === 1) return { text: "due tomorrow", srText: "due tomorrow", tone: "soon" };
+  if (daysLeft <= 7) return { text: `due in ${daysLeft}d`, srText: `due in ${days(daysLeft)}`, tone: "soon" };
+  if (daysLeft <= 30) return { text: `due in ${daysLeft}d`, srText: `due in ${days(daysLeft)}`, tone: "quiet" };
+  // Beyond a month, a countdown is noise — a date is something you can plan around.
+  const t = on ? `due ${on}` : `due in ${daysLeft}d`;
+  return { text: t, srText: on ? `due ${on}` : `due in ${days(daysLeft)}`, tone: "quiet" };
+}
+
 export interface Progress {
   pct: number;
   done: number;
@@ -291,6 +376,8 @@ export function campaignToCard(c: Campaign, rt?: { done: number; total: number }
   const prog = progressFor(c.phaseProgress, rt);
   const domain = domainForName(c.name);
   const parked = isParked(c.project);
+  const daysLeft = daysUntilISO(c.project.hardDeadlineDate);
+  const status = c.project.eisenhower?.status;
   return {
     slug: c.slug,
     name: c.name,
@@ -306,9 +393,13 @@ export function campaignToCard(c: Campaign, rt?: { done: number; total: number }
     isLead: c.isLead,
     parked,
     priority: c.project.eisenhower?.priority,
-    status: c.project.eisenhower?.status,
+    status,
     deadline: c.project.hardDeadline,
-    daysLeft: daysUntilISO(c.project.hardDeadlineDate),
+    daysLeft,
+    due:
+      daysLeft != null
+        ? deadlineLabel(daysLeft, { isoDate: c.project.hardDeadlineDate, status })
+        : undefined,
     currentPhase: c.project.currentPhase,
     lastSession: c.lastSessionDate,
   };
@@ -364,7 +455,14 @@ export function toDashView(
       }));
     })(),
     deadline: realm.greatSiege
-      ? { label: realm.greatSiege.label, date: realm.greatSiege.date, daysLeft: realm.greatSiege.daysLeft }
+      ? {
+          label: realm.greatSiege.label,
+          date: realm.greatSiege.date,
+          daysLeft: realm.greatSiege.daysLeft,
+          // scan.ts already drops done/closing-out projects, so this is always a
+          // deadline someone is still counting toward.
+          due: deadlineLabel(realm.greatSiege.daysLeft, { isoDate: realm.greatSiege.date }),
+        }
       : undefined,
     counts: { inbox: realm.inboxCount, resources: realm.resourceCount, archive: realm.archiveCount },
     scannedAt: realm.scannedAtISO,

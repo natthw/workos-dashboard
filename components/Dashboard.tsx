@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { FIGURES } from "@/lib/figures";
-import type { DashView, ProjectCard } from "@/lib/view";
+import type { DashView, DeadlineLabel, ProjectCard } from "@/lib/view";
 import type { RoadmapTasks, PhaseTasks } from "@/lib/roadmap-tasks";
 import { Crown } from "./Crown";
 import { TaskChecklist } from "./TaskChecklist";
@@ -11,6 +11,7 @@ import { RemoteImage } from "./RemoteImage";
 import { NowTicker } from "./NowTicker";
 import { HabitsReminder } from "./HabitsReminder";
 import { VisionBand } from "./VisionBand";
+import { Prose } from "./Prose";
 
 type CardStyle = "calm" | "bold";
 
@@ -22,22 +23,19 @@ function setPrefCookie(key: string, value: string) {
   }
 }
 
-// Past a hard deadline, daysLeft goes negative — render an explicit "overdue"
-// state (flagged for a warning colour) instead of a broken-looking "-17d left".
-function fmtDays(daysLeft: number): { text: string; overdue: boolean } {
-  if (daysLeft < 0) return { text: `${Math.abs(daysLeft)}d overdue`, overdue: true };
-  if (daysLeft === 0) return { text: "due today", overdue: true };
-  return { text: `due in ${daysLeft}d`, overdue: false };
-}
-
 // A self-contained deadline indicator: the ⏳ icon (same as the header pill) makes
 // it read as a *deadline* rather than a task metric, so it stands on its own line
 // away from the task counts — answering "what is this / what does it belong to".
-function DeadlineChip({ daysLeft }: { daysLeft: number }) {
-  const d = fmtDays(daysLeft);
+//
+// The copy and tone come from deadlineLabel() in lib/view.ts, the single rule
+// shared with the header pill and the project detail page. The terse text is for
+// the eye; srText carries the spoken form, because "6d" reads as "six d".
+function DeadlineChip({ due }: { due: DeadlineLabel }) {
   return (
-    <span className={`deadline-chip${d.overdue ? " overdue" : ""}`}>
-      <span aria-hidden="true">⏳</span> {d.text}
+    <span className={`deadline-chip ${due.tone}`}>
+      <span aria-hidden="true">⏳</span>
+      <span aria-hidden="true">{due.text}</span>
+      <span className="vh">{due.srText}</span>
     </span>
   );
 }
@@ -68,7 +66,7 @@ function CrownBtn({ p, onCrown }: { p: ProjectCard; onCrown: () => void }) {
       type="button"
       className="crown-btn"
       aria-label={`Pin ${p.name} as the most important project`}
-      title="Make most important"
+      title="Pin as most important"
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCrown(); }}
     >
       <Crown uid="btn" />
@@ -89,16 +87,19 @@ function CalmCard({ p, onCrown }: { p: ProjectCard; onCrown: () => void }) {
           <div className="calm-name">
             <Link href={`/project/${p.slug}`} className="stretch-link">{p.name}</Link>
           </div>
-          {p.blurb && <div className="calm-why">{p.blurb}</div>}
+          {p.blurb && <div className="calm-why"><Prose text={p.blurb} /></div>}
         </div>
       </div>
       <div className="calm-foot">
         <div className="ft-row">
           <span>{p.done}/{p.total} {p.unit === "task" ? "tasks" : "phases"}</span>
-          {p.pct > 0 && <b style={{ color: p.accent }}>{p.pct}%</b>}
+          {/* Same fact as BoldCard's "Not started" — Calm just says it inline
+              instead of in its own display line, matching the card's smaller
+              footprint. Toggling Calm/Bold changes styling, never information. */}
+          <b style={{ color: p.pct > 0 ? p.accent : undefined }}>{p.pct > 0 ? `${p.pct}%` : "Not started"}</b>
         </div>
         <div className="bar"><i style={{ width: `${p.pct}%`, background: p.accent }} /></div>
-        {p.daysLeft != null && <div className="foot-deadline"><DeadlineChip daysLeft={p.daysLeft} /></div>}
+        {p.due && <div className="foot-deadline"><DeadlineChip due={p.due} /></div>}
       </div>
       <CrownBtn p={p} onCrown={onCrown} />
     </div>
@@ -120,7 +121,7 @@ function BoldCard({ p, onCrown }: { p: ProjectCard; onCrown: () => void }) {
         </div>
         <div className="bar"><i style={{ width: `${p.pct}%`, background: p.accent }} /></div>
         <div className="bold-meta">{p.done} of {p.total} {p.unit === "task" ? "tasks" : "phases"} done</div>
-        {p.daysLeft != null && <div className="foot-deadline"><DeadlineChip daysLeft={p.daysLeft} /></div>}
+        {p.due && <div className="foot-deadline"><DeadlineChip due={p.due} /></div>}
       </div>
       <CrownBtn p={p} onCrown={onCrown} />
     </div>
@@ -133,15 +134,18 @@ export default function Dashboard({
   tasksBySlug,
   initialStyle = "calm",
   initialFeatured,
+  initialBannerOpen = false,
 }: {
   view: DashView;
   initialFigure: number;
   tasksBySlug: Record<string, RoadmapTasks>;
   initialStyle?: CardStyle;
   initialFeatured?: string;
+  initialBannerOpen?: boolean;
 }) {
   const [figIdx, setFigIdx] = useState(initialFigure);
   const [style, setStyle] = useState<CardStyle>(initialStyle);
+  const [bannerOpen, setBannerOpen] = useState(initialBannerOpen);
   const defaultFeatured =
     (view.projects.find((p) => p.isLead && !p.parked) ||
       view.projects.find((p) => !p.parked) ||
@@ -160,6 +164,11 @@ export default function Dashboard({
   function pickStyle(s: CardStyle) {
     setStyle(s);
     setPrefCookie("workos.cardStyle", s);
+  }
+  function toggleBanner() {
+    const next = !bannerOpen;
+    setBannerOpen(next);
+    setPrefCookie("workos.bannerOpen", next ? "1" : "0");
   }
   function crownIt(slug: string, name: string) {
     setFeatured(slug);
@@ -193,31 +202,61 @@ export default function Dashboard({
 
   return (
     <>
+      {/* The page had no <h1> at all — heading navigation offered only "Projects"
+          and "Areas". The visible title is the brand link in the banner topbar,
+          which is also on the project route, so promoting it there would give
+          that page two h1s. */}
+      <h1 className="vh">WorkOS Dashboard — what to work on now</h1>
       <NowTicker focus={view.now.focus} />
 
-      <div className="banner banner-hero">
+      <div className={`banner banner-hero${bannerOpen ? " open" : ""}`}>
         <RemoteImage src={f.sceneImg} className="banner-scene" sizes="100vw" priority unoptimized={f.scenePersonal} />
         <div className="banner-shade" />
         <header className="topbar banner-topbar">
           <Link href="/" className="brand">WorkOS Dashboard<span className="brand-dot">.</span></Link>
           <span className="spacer" />
-          {view.deadline && (() => {
-            const d = fmtDays(view.deadline.daysLeft);
-            return <span className={`pill${d.overdue ? " pill-overdue" : ""}`}><span aria-hidden="true">⏳</span> <b>{d.text}</b>&nbsp;· {view.deadline.label}</span>;
-          })()}
+          {view.deadline && (
+            <span className={`pill pill-${view.deadline.due.tone}`}>
+              <span aria-hidden="true">⏳</span>
+              <b aria-hidden="true">{view.deadline.due.text}</b>
+              <span className="vh">{view.deadline.due.srText}, </span>
+              <span aria-hidden="true">&nbsp;· </span>
+              {view.deadline.label}
+            </span>
+          )}
           <span className="pill"><span aria-hidden="true">📋</span> {view.areas.length} areas</span>
         </header>
         <div className="banner-content">
           <div className="banner-in">
             <div className="portrait imgwrap"><span className="em" aria-hidden="true">{f.emoji}</span><RemoteImage src={f.portrait} sizes="122px" alt={`Portrait of ${f.name}`} unoptimized /></div>
             <div className="b-txt">
-              <div className="b-who"><span className="b-name">{f.name}</span><span className="b-years">{f.years}</span></div>
+              {/* Quote leads, attribution follows — the encouragement is the payload,
+                  and this order survives being clamped to one line when collapsed. */}
               <div className="b-quote">&ldquo;{f.quote}&rdquo;</div>
-              <div className="b-legacy">{f.legacy}</div>
+              <div className="b-who"><span className="b-name">{f.name}</span><span className="b-years">{f.years}</span></div>
+              {/* grid-template-rows rather than height/max-height: the same reveal
+                  idiom as .done-wrap, and it doesn't animate a layout property. */}
+              <div className="b-extra">
+                <div className="b-extra-in">
+                  <div className="b-legacy">{f.legacy}</div>
+                  <div className="b-scene-cap">backdrop: {f.scene}</div>
+                </div>
+              </div>
+            </div>
+            <div className="b-controls">
+              <button
+                type="button"
+                className="b-more"
+                aria-expanded={bannerOpen}
+                aria-label={bannerOpen ? `Collapse ${f.name}` : `Show ${f.name}'s legacy and backdrop`}
+                onClick={toggleBanner}
+              >
+                <span className="b-more-caret" aria-hidden="true">▾</span>
+                {bannerOpen ? "Less" : "Legacy"}
+              </button>
+              <button type="button" className="spark" onClick={() => setFigIdx((figIdx + 1) % FIGURES.length)}><span aria-hidden="true">✦</span> Another spark</button>
             </div>
           </div>
-          <div className="b-scene-cap">backdrop: {f.scene}</div>
-          <button type="button" className="spark" onClick={() => setFigIdx((figIdx + 1) % FIGURES.length)}><span aria-hidden="true">✦</span> Another spark</button>
         </div>
       </div>
 
@@ -251,7 +290,7 @@ export default function Dashboard({
                   </div>
                   <Link className="focus-name stretch-link" href={`/project/${feat.slug}`}>{feat.name}</Link>
                 </div>
-                {feat.blurb && <div className="focus-why" title={feat.blurb}>{feat.blurb}</div>}
+                {feat.blurb && <div className="focus-why" title={feat.blurb}><Prose text={feat.blurb} /></div>}
                 <div className="bar-row"><span>Progress</span><b>{feat.pct > 0 ? `${feat.pct}%` : "Not started"}</b></div>
                 <div className="bar"><i style={{ width: `${feat.pct}%`, background: feat.accent }} /></div>
 
@@ -306,19 +345,28 @@ export default function Dashboard({
                       {view.areas.map((a) => {
                         const stale = a.lastTouchedDays != null && a.lastTouchedDays > STALE_DAYS;
                         const isOpen = openArea === a.slug;
+                        // The chip reads "Career 33d" on screen; spoken, that is
+                        // two unexplained numbers. The accessible name says what
+                        // they mean. The old `title` contradicted it outright —
+                        // "Career33d" announced, "No open todos" on hover.
+                        const todos = a.openCount > 0
+                          ? `${a.openCount} open todo${a.openCount !== 1 ? "s" : ""}`
+                          : "no open todos";
+                        const age = stale ? `, last touched ${a.lastTouchedDays} days ago` : "";
                         return (
                           <button
                             type="button"
                             className={`area-chip ${a.openCount > 0 ? "has-open" : ""}${stale ? " stale" : ""}${isOpen ? " open" : ""}`}
                             key={a.slug}
                             aria-expanded={isOpen}
+                            aria-controls={isOpen ? "area-panel" : undefined}
+                            aria-label={`${a.name}: ${todos}${age}`}
                             onClick={() => setOpenArea(isOpen ? null : a.slug)}
-                            title={a.openCount > 0 ? `${a.openCount} open todo${a.openCount !== 1 ? "s" : ""}` : "No open todos"}
                           >
-                            <span className="area-chip-name">{a.name}</span>
-                            {a.openCount > 0 && <span className="area-chip-count">{a.openCount}</span>}
+                            <span className="area-chip-name" aria-hidden="true">{a.name}</span>
+                            {a.openCount > 0 && <span className="area-chip-count" aria-hidden="true">{a.openCount}</span>}
                             {stale && (
-                              <span className="area-chip-age" title={`Untouched for ${a.lastTouchedDays} days`}>
+                              <span className="area-chip-age" aria-hidden="true" title={`Untouched for ${a.lastTouchedDays} days`}>
                                 {a.lastTouchedDays}d
                               </span>
                             )}
@@ -327,7 +375,7 @@ export default function Dashboard({
                       })}
                     </div>
                     {open && (
-                      <div className="area-panel">
+                      <div className="area-panel" id="area-panel" role="region" aria-label={`${open.name} detail`}>
                         <div className="area-panel-meta">
                           {open.openCount > 0
                             ? `${open.openCount} open todo${open.openCount !== 1 ? "s" : ""}`

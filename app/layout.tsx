@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Spectral, DM_Sans } from "next/font/google";
+import { WriteReceipts } from "@/components/WriteReceipt";
 import "./globals.css";
 
 // Self-hosted, preloaded, swap — replaces the render-blocking Google Fonts
@@ -33,6 +34,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body suppressHydrationWarning>
         <a href="#main" className="skip-link">Skip to content</a>
         {children}
+        {/* Renders nothing until a checkbox writes to the vault. Mounted here so
+            one ledger serves every checklist on either route. */}
+        <WriteReceipts />
       </body>
     </html>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { VisionView, VisionGoalView, VisionDomainGroup } from "@/lib/view";
 
 /**
@@ -12,7 +12,32 @@ import type { VisionView, VisionGoalView, VisionDomainGroup } from "@/lib/view";
  */
 export function VisionBand({ vision, children }: { vision: VisionView; children?: ReactNode }) {
   const [open, setOpen] = useState<string | null>(null);
+  const railRef = useRef<HTMLDivElement>(null);
   const title = vision.year ? `Vision ${vision.year}` : "Vision";
+
+  // The detail floats over the page rather than displacing it, so it needs the
+  // dismissals a popover is expected to have: Escape, and a click anywhere else.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(null);
+      // Return focus to the dial that opened it, rather than dropping to <body>.
+      railRef.current?.querySelector<HTMLElement>(".vtile.open")?.focus();
+    };
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (railRef.current?.contains(t)) return; // a dial handles its own toggle
+      if ((t as Element).closest?.(".vision-detail")) return;
+      setOpen(null);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onDown);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onDown);
+    };
+  }, [open]);
   const openIndex = open ? vision.domains.findIndex((d) => d.domain === open) : -1;
   const openGroup = openIndex >= 0 ? vision.domains[openIndex] : undefined;
   // caret points at the clicked dial's centre so the panel reads as expanding from it
@@ -37,7 +62,7 @@ export function VisionBand({ vision, children }: { vision: VisionView; children?
         </span>
       </div>
 
-      <div className="vision-rail">
+      <div className="vision-rail" ref={railRef}>
         {vision.domains.map((d) => {
           const dormant = d.goals.length === 0;
           const isOpen = open === d.domain;
@@ -75,7 +100,10 @@ export function VisionBand({ vision, children }: { vision: VisionView; children?
         })}
       </div>
 
-      {openGroup && <DomainDetail group={openGroup} caretLeft={caretLeft} />}
+      {/* zero-height anchor: the popover hangs off the rail without taking layout */}
+      <div className="vision-detail-anchor">
+        {openGroup && <DomainDetail group={openGroup} caretLeft={caretLeft} />}
+      </div>
       {children && <div className="vision-habits">{children}</div>}
     </section>
   );

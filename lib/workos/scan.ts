@@ -186,9 +186,33 @@ export function buildProvince(slug: string): (Province & { _mtime: number }) | n
 
 // --- the whole realm ----------------------------------------------------------
 
+/** A passed deadline stays in the header this long, then stops being news. */
+const PAST_DEADLINE_WINDOW_DAYS = 30;
+
+/**
+ * Work-states nobody is counting down toward: finished, wrapping up, or shelved.
+ * A deadline on one of these is a date in a file, not a thing to be warned about.
+ */
+const NOT_COUNTING_DOWN = new Set(["done", "closing-out", "parked", "someday"]);
+
+/**
+ * The nearest deadline still worth putting in the header.
+ *
+ * Two rules keep this honest. A project whose Eisenhower block says it is done,
+ * closing out, parked, or someday is not counting down any more, so it never
+ * claims the header — otherwise finished work sits there as a permanent red
+ * alarm and every real deadline behind it loses its credibility. And when
+ * nothing is upcoming, the
+ * fallback is the MOST RECENTLY passed deadline within a 30-day window, not the
+ * oldest one on record: an event from last week is news, one from last quarter
+ * is history that belongs on the project card.
+ */
 function deriveGreatSiege(campaigns: Campaign[]): GreatSiege | undefined {
   const dated = campaigns
-    .filter((c) => c.project.hardDeadlineDate)
+    .filter((c) => {
+      if (!c.project.hardDeadlineDate) return false;
+      return !NOT_COUNTING_DOWN.has(c.project.eisenhower?.status?.toLowerCase() ?? "");
+    })
     .map((c) => ({
       name: c.name,
       date: c.project.hardDeadlineDate as string,
@@ -197,8 +221,12 @@ function deriveGreatSiege(campaigns: Campaign[]): GreatSiege | undefined {
     .sort((a, b) => a.date.localeCompare(b.date));
   if (dated.length === 0) return undefined;
 
-  const next = dated.find((d) => d.days >= 0) ?? dated[0];
-  return { label: next.name, date: next.date, daysLeft: next.days };
+  const upcoming = dated.find((d) => d.days >= 0);
+  if (upcoming) return { label: upcoming.name, date: upcoming.date, daysLeft: upcoming.days };
+
+  const justPassed = dated[dated.length - 1]; // latest date = most recently passed
+  if (justPassed.days < -PAST_DEADLINE_WINDOW_DAYS) return undefined;
+  return { label: justPassed.name, date: justPassed.date, daysLeft: justPassed.days };
 }
 
 export function scanRealm(): RealmModel {
