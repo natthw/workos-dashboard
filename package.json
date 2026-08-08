@@ -5,6 +5,7 @@
   "description": "WorkOS Dashboard — a calm, focused dashboard that reads the WorkOS standard (the markdown execution layer of LifeOS) and renders what to work on now",
   "scripts": {
     "dev": "next dev -p 3001",
+    "local": "next dev -p 3001 -H 0.0.0.0",
     "build": "next build",
     "start": "next start -p 3001"
   },
