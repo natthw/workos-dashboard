@@ -3,7 +3,7 @@
 
 import type { RealmModel, Campaign, DomainKey, Cadence, StatusKey, VisionDoc } from "@/lib/workos/types";
 import { isParked } from "@/lib/workos/parsers/project";
-import { daysUntil } from "@/lib/workos/parsers/util";
+import { daysSinceMs, daysUntil } from "@/lib/workos/parsers/util";
 import { domainForName, DOMAIN_ORDER } from "@/lib/workos/domains";
 
 const DOMAIN_ACCENT: Record<DomainKey, string> = {
@@ -139,6 +139,43 @@ export interface VisionView {
   totalDomainCount: number;
 }
 
+/** How old is too old. Three levels so the eye can skip what is fine. */
+export type StaleLevel = "fresh" | "amber" | "red";
+
+/**
+ * `days >= red` → red, `days >= amber` → amber, else fresh. Both bounds are
+ * INCLUSIVE lower bounds, so a spec written as "red >35d" has a red floor of 36.
+ */
+function staleLevel(days: number, amber: number, red: number): StaleLevel {
+  if (days >= red) return "red";
+  if (days >= amber) return "amber";
+  return "fresh";
+}
+
+/**
+ * Staleness thresholds, per surface and deliberately unequal — a single blanket
+ * set would misreport most of them, which is exactly how the hook-based
+ * freshness warnings lost their credibility (they cried red every month).
+ */
+const STALE = {
+  /** 00_Inbox: neutral <21d · amber >=21d · red >=35d. */
+  inbox: { amber: 21, red: 35 },
+  /** NOW.md / VISION.md: <21d · 21-35d · >35d — set by the MONTHLY review, so
+   *  ~28 days old is normal and a fortnightly red would be red most of a month. */
+  anchor: { amber: 21, red: 36 },
+  /** hot.md: <7d · 7-14d · >14d — a per-session cache two weeks cold is not
+   *  merely aging, it is lying. A different failure, so a different scale. */
+  cache: { amber: 7, red: 15 },
+} as const;
+
+/** One root surface's last-touched age, ready to render as a chip badge. */
+export interface FreshnessView {
+  /** The vault filename, shown as-is — this is vault truth, not a UI label. */
+  file: string;
+  days: number;
+  level: StaleLevel;
+}
+
 export interface DashView {
   now: NowView;
   projects: ProjectCard[];
@@ -147,6 +184,10 @@ export interface DashView {
   vision?: VisionView;
   deadline?: { label: string; date: string; daysLeft: number; due: DeadlineLabel };
   counts: { inbox: number; resources: number; archive: number };
+  /** Age of the oldest inbox item — the dimension the count alone cannot carry. */
+  inboxAge?: { days: number; level: StaleLevel };
+  /** NOW.md / VISION.md / hot.md last-touched ages; missing files are omitted. */
+  freshness: FreshnessView[];
   scannedAt: string;
   vaultName: string;
 }
@@ -434,10 +475,7 @@ export function toDashView(
         };
       }),
       fileCount: p.fileCount,
-      lastTouchedDays:
-        p.lastTouchedMs != null
-          ? Math.max(0, Math.floor((Date.now() - p.lastTouchedMs) / 86400000))
-          : undefined,
+      lastTouchedDays: p.lastTouchedMs != null ? daysSinceMs(p.lastTouchedMs) : undefined,
       todosRelPath: p.todosRelPath,
     })),
     habits: (() => {
@@ -465,6 +503,27 @@ export function toDashView(
         }
       : undefined,
     counts: { inbox: realm.inboxCount, resources: realm.resourceCount, archive: realm.archiveCount },
+    inboxAge:
+      realm.inboxOldestAgeDays != null
+        ? {
+            days: realm.inboxOldestAgeDays,
+            level: staleLevel(realm.inboxOldestAgeDays, STALE.inbox.amber, STALE.inbox.red),
+          }
+        : undefined,
+    freshness: (
+      [
+        { file: "NOW.md", mtime: realm.rootFreshness.now, t: STALE.anchor },
+        { file: "VISION.md", mtime: realm.rootFreshness.vision, t: STALE.anchor },
+        { file: "hot.md", mtime: realm.rootFreshness.hot, t: STALE.cache },
+      ] as { file: string; mtime?: number; t: { amber: number; red: number } }[]
+    )
+      // A missing file has no age. Say nothing rather than report it as 0d fresh
+      // or as infinitely stale — both are claims the vault does not support.
+      .filter((e) => e.mtime != null)
+      .map(({ file, mtime, t }) => {
+        const days = daysSinceMs(mtime as number);
+        return { file, days, level: staleLevel(days, t.amber, t.red) };
+      }),
     scannedAt: realm.scannedAtISO,
     vaultName: process.env.NEXT_PUBLIC_OBSIDIAN_VAULT || "WorkOS",
   };

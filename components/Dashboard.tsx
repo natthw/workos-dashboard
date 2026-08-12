@@ -40,6 +40,13 @@ function DeadlineChip({ due }: { due: DeadlineLabel }) {
   );
 }
 
+// "12d" is for the eye; spoken it reads as "twelve d". Every age badge pairs the
+// terse form with this one in its accessible name — same split as DeadlineChip.
+function ageWords(days: number): string {
+  if (days === 0) return "today";
+  return `${days} day${days !== 1 ? "s" : ""} ago`;
+}
+
 function pickActivePhase(rt?: RoadmapTasks): PhaseTasks | null {
   if (!rt) return null;
   const ph = rt.phases;
@@ -410,9 +417,49 @@ export default function Dashboard({
               })()}
 
               <div className="stat-row">
-                <span className="stat-chip"><b>{view.counts.inbox}</b> Inbox</span>
+                {/* The Inbox count says how much is queued; the age badge says
+                    whether anyone is draining it. Six items is fine — six items
+                    whose oldest is 42 days is sediment. */}
+                <span
+                  className="stat-chip"
+                  aria-label={
+                    `${view.counts.inbox} inbox item${view.counts.inbox !== 1 ? "s" : ""}` +
+                    (view.inboxAge ? `, oldest ${ageWords(view.inboxAge.days)}` : "")
+                  }
+                >
+                  <b aria-hidden="true">{view.counts.inbox}</b>
+                  <span aria-hidden="true">Inbox</span>
+                  {view.inboxAge && (
+                    <span
+                      className={`stat-chip-age lvl-${view.inboxAge.level}`}
+                      aria-hidden="true"
+                      title={`Oldest item captured ${ageWords(view.inboxAge.days)}`}
+                    >
+                      {view.inboxAge.days}d
+                    </span>
+                  )}
+                </span>
                 <span className="stat-chip"><b>{view.counts.resources}</b> Resources</span>
                 <span className="stat-chip"><b>{view.counts.archive}</b> Archive</span>
+                {/* Root anchor surfaces. Nothing else in LifeOS reports when these
+                    go stale, so they rot unseen — this is the only daily surface
+                    that can say so. Same chip + age-badge pattern as the areas. */}
+                {view.freshness.map((f) => (
+                  <span
+                    key={f.file}
+                    className="stat-chip"
+                    aria-label={`${f.file} last touched ${ageWords(f.days)}`}
+                  >
+                    <span className="stat-chip-file" aria-hidden="true">{f.file}</span>
+                    <span
+                      className={`stat-chip-age lvl-${f.level}`}
+                      aria-hidden="true"
+                      title={`Last touched ${ageWords(f.days)}`}
+                    >
+                      {f.days}d
+                    </span>
+                  </span>
+                ))}
               </div>
             </div>
           </div>

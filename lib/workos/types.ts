@@ -202,8 +202,12 @@ export interface RealmModel {
   provinces: Province[];
   now?: NowDoc;
   inboxCount: number;
+  /** Whole days since the OLDEST inbox item was captured (undefined = empty). */
+  inboxOldestAgeDays?: number;
   resourceCount: number;
   archiveCount: number;
+  /** Last-touched mtimes (ms) of the root anchor surfaces; undefined = missing. */
+  rootFreshness: { now?: number; vision?: number; hot?: number };
   greatSiege?: GreatSiege;
   scannedAtISO: string;
   // habits read live from habits.md + the append-only habits-log.md

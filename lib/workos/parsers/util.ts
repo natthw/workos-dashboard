@@ -77,6 +77,11 @@ export function daysUntil(iso: string, from: Date = new Date()): number {
   return Math.round((target.getTime() - start.getTime()) / 86_400_000);
 }
 
+/** Whole days since a timestamp (ms). Never negative; 0 = touched today. */
+export function daysSinceMs(ms: number, now: number = Date.now()): number {
+  return Math.max(0, Math.floor((now - ms) / 86_400_000));
+}
+
 /** Local "today" as YYYY-MM-DD (the app's day boundary = local midnight). */
 export function todayISO(from: Date = new Date()): string {
   const y = from.getFullYear();
