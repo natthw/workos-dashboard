@@ -21,6 +21,7 @@ import { parseRoadmap, phaseProgress } from "./parsers/roadmap";
 import { parseTodos } from "./parsers/todos";
 import { parseAreaGoals } from "./parsers/goals";
 import { parseNow } from "./parsers/now";
+import { parseWaiting } from "./parsers/waiting";
 import { parseHabits } from "./parsers/habits";
 import { parseHabitLog } from "./parsers/habitlog";
 import { parseVision } from "./parsers/vision";
@@ -292,6 +293,9 @@ export function scanRealm(): RealmModel {
   const nowRead = safeRead(path.join(root, ROOT_FILES.now));
   const now = nowRead ? parseNow(nowRead.lines) : undefined;
 
+  const waitingRead = safeRead(path.join(root, ROOT_FILES.waiting));
+  const waiting = waitingRead ? parseWaiting(waitingRead.lines) : undefined;
+
   const inboxCount = countMd(resolveInVault(PARA.inbox), true);
   const resourceCount = countMd(resolveInVault(PARA.resources), true);
   const archiveCount = countMd(resolveInVault(PARA.archive), true);
@@ -326,6 +330,8 @@ export function scanRealm(): RealmModel {
     campaigns: campaigns.map(stripInternal),
     provinces: provinces.map(stripInternal),
     now,
+    waiting,
+    waitingRelPath: waitingRead?.relPath,
     inboxCount,
     inboxOldestAgeDays,
     resourceCount,

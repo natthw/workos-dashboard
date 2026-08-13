@@ -197,10 +197,30 @@ export interface VisionDoc {
   goals: VisionGoal[];
 }
 
+/** One unmet human dependency from WAITING.md — a chain stopped until you act. */
+export interface WaitingItem {
+  text: string; // cleaned action, for display
+  raw: string; // exact text after "[ ]" — the write-back anchor
+  checked: boolean;
+  lineNumber: number; // 0-based
+  owed?: string; // ISO date the input was FIRST asked for (back-dated honestly)
+  unblocks?: string; // what moves when it clears — also the hooks' identity key
+  how?: string; // the physical start-line: a command to run or a file to open
+}
+
+export interface WaitingDoc {
+  items: WaitingItem[];
+  /** Heading the items sit under, so a write can be anchor-scoped to it. */
+  section?: string;
+}
+
 export interface RealmModel {
   campaigns: Campaign[];
   provinces: Province[];
   now?: NowDoc;
+  /** WAITING.md — what the work is waiting on from you (undefined if absent). */
+  waiting?: WaitingDoc;
+  waitingRelPath?: string;
   inboxCount: number;
   /** Whole days since the OLDEST inbox item was captured (undefined = empty). */
   inboxOldestAgeDays?: number;

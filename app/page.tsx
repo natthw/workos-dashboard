@@ -19,6 +19,9 @@ export default async function Page() {
   // Opening it (portrait, scene, legacy at full size) is a stored preference —
   // if you want the whole thing every morning, you expand it once.
   const initialBannerOpen = jar.get("workos.bannerOpen")?.value === "1";
+  // The blocked-on-you strip rests closed: the count and the oldest age are the
+  // signal, and the `how:` lines are one click away when you act on them.
+  const initialWaitingOpen = jar.get("workos.waitingOpen")?.value === "1";
 
   const realm = scanRealm();
   const initialFigure = dailyFigureIndex(Date.now());
@@ -42,6 +45,7 @@ export default async function Page() {
         initialStyle={initialStyle}
         initialFeatured={initialFeatured}
         initialBannerOpen={initialBannerOpen}
+        initialWaitingOpen={initialWaitingOpen}
       />
     </>
   );

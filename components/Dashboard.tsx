@@ -11,6 +11,7 @@ import { RemoteImage } from "./RemoteImage";
 import { NowTicker } from "./NowTicker";
 import { HabitsReminder } from "./HabitsReminder";
 import { VisionBand } from "./VisionBand";
+import { WaitingStrip } from "./WaitingStrip";
 import { Prose } from "./Prose";
 
 type CardStyle = "calm" | "bold";
@@ -142,6 +143,7 @@ export default function Dashboard({
   initialStyle = "calm",
   initialFeatured,
   initialBannerOpen = false,
+  initialWaitingOpen = false,
 }: {
   view: DashView;
   initialFigure: number;
@@ -149,6 +151,7 @@ export default function Dashboard({
   initialStyle?: CardStyle;
   initialFeatured?: string;
   initialBannerOpen?: boolean;
+  initialWaitingOpen?: boolean;
 }) {
   const [figIdx, setFigIdx] = useState(initialFigure);
   const [style, setStyle] = useState<CardStyle>(initialStyle);
@@ -268,6 +271,20 @@ export default function Dashboard({
       </div>
 
       <main id="main">
+        {/* Blocked-on-you sits ABOVE the work on purpose: it is the one thing
+            that stops a chain moving, and it renders nothing at all when the
+            ledger is empty — which is the goal state, so it usually costs
+            nothing. One line at rest keeps the projects where they are. */}
+        {view.waiting && (
+          <div className="wrap" style={{ marginTop: 16 }}>
+            <WaitingStrip
+              waiting={view.waiting}
+              initialOpen={initialWaitingOpen}
+              onOpenChange={(o) => setPrefCookie("workos.waitingOpen", o ? "1" : "0")}
+            />
+          </div>
+        )}
+
         {view.vision ? (
           <div className="wrap" style={{ marginTop: 16 }}>
             <VisionBand vision={view.vision}>

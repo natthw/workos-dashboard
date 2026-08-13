@@ -28,6 +28,10 @@ export const PARA = {
 export const ROOT_FILES = {
   hot: "hot.md",
   now: "NOW.md",
+  // The inverse of NOW.md: what the work is waiting on from the human. Listed
+  // here so vaultVersion() fingerprints it too — an item cleared in Obsidian
+  // must make the strip refresh.
+  waiting: "WAITING.md",
   log: "log.md",
   claude: "CLAUDE.md",
   habits: "habits.md",

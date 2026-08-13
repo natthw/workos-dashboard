@@ -438,6 +438,34 @@ main{animation:fadeup .35s ease}
 .area-goal-num{color:var(--ink-soft)}
 .area-goal-empty{font-size:12px;color:var(--ink-faint)}
 
+/* WAITING.md — "blocked on you", as a COLLAPSIBLE STRIP rather than a band.
+   A band would have stacked a permanent block above the projects, which is the
+   one shape this page's direction rules out. At rest it is a single 44px row
+   carrying the count and the oldest age; the `how:` lines open on click. It is
+   not rendered at all when the ledger is empty, so the usual cost is zero. */
+.waiting{background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--ink-faint);border-radius:var(--r-sm);box-shadow:var(--sh);overflow:hidden}
+.waiting.lvl-amber{border-left-color:var(--gold-ink)}
+.waiting.lvl-red{border-left-color:var(--warn-ink)}
+.waiting-bar{display:flex;align-items:center;gap:9px;width:100%;min-height:44px;padding:8px 14px;background:none;border:none;font:inherit;font-size:13px;color:var(--ink-soft);text-align:left;cursor:pointer}
+.waiting-bar:hover{background:var(--line-soft)}
+.waiting-label{font-weight:600;color:var(--ink)}
+.waiting-count{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;padding:0 5px;background:var(--accent-deep);color:#fff;border-radius:20px;font-size:11px;font-weight:700;line-height:1}
+.waiting-age{font-size:11px;font-weight:700;color:var(--ink-faint)}
+.waiting-age.lvl-amber{color:var(--gold-ink)}
+.waiting-age.lvl-red{color:var(--warn-ink)}
+.waiting-caret{font-size:11px;color:var(--ink-faint);transition:transform .15s}
+.waiting-bar.open .waiting-caret{transform:rotate(180deg)}
+.waiting-list{padding:0 14px 6px;border-top:1px solid var(--line-soft)}
+.waiting-item{padding:2px 0}
+.waiting-row{align-items:center}
+.waiting-row .todo-t{flex:1}
+.waiting-item-age{font-size:11px;font-weight:700;color:var(--ink-faint);flex-shrink:0}
+.waiting-item-age.lvl-amber{color:var(--gold-ink)}
+.waiting-item-age.lvl-red{color:var(--warn-ink)}
+/* the start-line: a command to run or a file to open, never a topic */
+.waiting-how{display:flex;align-items:baseline;gap:7px;font-size:12px;color:var(--ink-soft);padding:0 0 10px 31px;margin-top:-6px}
+.waiting-how-k{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);flex-shrink:0}
+
 /* inbox / resources / archive as labeled stat chips, plus the root-surface
    freshness chips (NOW.md / VISION.md / hot.md). Same shape, and the same
    age-badge idea as .area-chip-age — but graded, because these three have

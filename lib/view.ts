@@ -160,6 +160,11 @@ function staleLevel(days: number, amber: number, red: number): StaleLevel {
 const STALE = {
   /** 00_Inbox: neutral <21d · amber >=21d · red >=35d. */
   inbox: { amber: 21, red: 35 },
+  /** WAITING.md items — same scale as the inbox, and for the same reason: both
+   *  are things sitting in a queue that the monthly review sweeps. 35d is also
+   *  the five-week stall WAITING.md's own header names as the failure it exists
+   *  to make visible. (The plan specified "neutral/amber/red" without numbers.) */
+  waiting: { amber: 21, red: 35 },
   /** NOW.md / VISION.md: <21d · 21-35d · >35d — set by the MONTHLY review, so
    *  ~28 days old is normal and a fortnightly red would be red most of a month. */
   anchor: { amber: 21, red: 36 },
@@ -167,6 +172,30 @@ const STALE = {
    *  merely aging, it is lying. A different failure, so a different scale. */
   cache: { amber: 7, red: 15 },
 } as const;
+
+/** One WAITING.md line, ready to render and to tick back to disk. */
+export interface WaitingItemView {
+  text: string;
+  raw: string; // the write-back anchor — exact text after the checkbox
+  checked: boolean;
+  lineNumber: number;
+  how?: string;
+  unblocks?: string;
+  owed?: string;
+  /** Days since the input was first asked for (undefined if the line has no date). */
+  ageDays?: number;
+  level: StaleLevel;
+}
+
+export interface WaitingView {
+  relPath: string;
+  /** Heading to scope the write anchor to, when the file has one. */
+  section?: string;
+  items: WaitingItemView[];
+  oldestDays?: number;
+  /** Worst level across the open items — what the collapsed strip shows. */
+  level: StaleLevel;
+}
 
 /** One root surface's last-touched age, ready to render as a chip badge. */
 export interface FreshnessView {
@@ -186,6 +215,8 @@ export interface DashView {
   counts: { inbox: number; resources: number; archive: number };
   /** Age of the oldest inbox item — the dimension the count alone cannot carry. */
   inboxAge?: { days: number; level: StaleLevel };
+  /** Blocked-on-you items. Undefined when there are none — nothing renders. */
+  waiting?: WaitingView;
   /** NOW.md / VISION.md / hot.md last-touched ages; missing files are omitted. */
   freshness: FreshnessView[];
   scannedAt: string;
@@ -446,6 +477,49 @@ export function campaignToCard(c: Campaign, rt?: { done: number; total: number }
   };
 }
 
+/**
+ * WAITING.md → the collapsed strip. Age comes from `owed:` — the date the input
+ * was FIRST asked for, back-dated honestly — because the age is the entire
+ * signal; without it a five-week stall and a four-day one look identical.
+ *
+ * Undefined when the file is absent or holds no items: an empty ledger renders
+ * nothing at all, which is the point. Ticked items are kept so a mis-tap stays
+ * reversible in place (they leave the file when the line is deleted, not when
+ * it is ticked), but they never count toward the headline or the age.
+ */
+function toWaitingView(realm: RealmModel): WaitingView | undefined {
+  const doc = realm.waiting;
+  if (!doc || doc.items.length === 0 || !realm.waitingRelPath) return undefined;
+
+  const items: WaitingItemView[] = doc.items.map((it) => {
+    const ageDays = it.owed ? Math.max(0, -daysUntil(it.owed)) : undefined;
+    return {
+      text: it.text,
+      raw: it.raw,
+      checked: it.checked,
+      lineNumber: it.lineNumber,
+      how: it.how,
+      unblocks: it.unblocks,
+      owed: it.owed,
+      ageDays,
+      level:
+        ageDays != null ? staleLevel(ageDays, STALE.waiting.amber, STALE.waiting.red) : "fresh",
+    };
+  });
+
+  const openAges = items.filter((i) => !i.checked && i.ageDays != null).map((i) => i.ageDays!);
+  const oldestDays = openAges.length ? Math.max(...openAges) : undefined;
+
+  return {
+    relPath: realm.waitingRelPath,
+    section: doc.section,
+    items,
+    oldestDays,
+    level:
+      oldestDays != null ? staleLevel(oldestDays, STALE.waiting.amber, STALE.waiting.red) : "fresh",
+  };
+}
+
 export function toDashView(
   realm: RealmModel,
   tasksBySlug: Record<string, { done: number; total: number }> = {},
@@ -458,6 +532,7 @@ export function toDashView(
       someday: realm.now?.someday ?? [],
     },
     projects: realm.campaigns.map((c) => campaignToCard(c, tasksBySlug[c.slug])),
+    waiting: toWaitingView(realm),
     vision: toVisionView(realm.vision, realm.campaigns, tasksBySlug),
     areas: realm.provinces.map((p) => ({
       slug: p.slug,
