@@ -1,4 +1,5 @@
 import type { WaitingDoc, WaitingItem } from "../types";
+import { isRealDate } from "./util";
 
 /**
  * Parse `WAITING.md` — the inverse of `NOW.md`. NOW is what you owe the work;
@@ -39,7 +40,7 @@ function parseItem(afterBox: string, checked: boolean, lineNumber: number): Wait
         // A malformed date is treated as absent, never an error — the same rule
         // every other consumer of the standard follows.
         const iso = val.match(/^\d{4}-\d{2}-\d{2}/);
-        if (iso) item.owed = iso[0];
+        if (iso && isRealDate(iso[0])) item.owed = iso[0];
         break;
       }
       case "unblocks":

@@ -26,6 +26,8 @@ export interface TodoItem {
   checked: boolean;
   lineNumber: number; // 0-based index in the raw file (for write-back)
   addedDate?: string;
+  /** ISO date from `(started YYYY-MM-DD)` — the board's third state. */
+  started?: string;
   section: string;
 }
 

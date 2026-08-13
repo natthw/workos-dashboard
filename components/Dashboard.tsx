@@ -4,7 +4,8 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { FIGURES } from "@/lib/figures";
 import type { DashView, DeadlineLabel, ProjectCard } from "@/lib/view";
-import type { RoadmapTasks, PhaseTasks } from "@/lib/roadmap-tasks";
+import type { RoadmapTasks } from "@/lib/roadmap-tasks";
+import { pickActivePhase } from "@/lib/phase";
 import { Crown } from "./Crown";
 import { TaskChecklist } from "./TaskChecklist";
 import { RemoteImage } from "./RemoteImage";
@@ -12,9 +13,13 @@ import { NowTicker } from "./NowTicker";
 import { HabitsReminder } from "./HabitsReminder";
 import { VisionBand } from "./VisionBand";
 import { WaitingStrip } from "./WaitingStrip";
+import { Board } from "./Board";
+import type { BoardView } from "@/lib/board";
 import { Prose } from "./Prose";
 
 type CardStyle = "calm" | "bold";
+/** Which lens the projects column is showing: what matters, or what's moving. */
+type Lens = "eisenhower" | "board";
 
 function setPrefCookie(key: string, value: string) {
   try {
@@ -46,17 +51,6 @@ function DeadlineChip({ due }: { due: DeadlineLabel }) {
 function ageWords(days: number): string {
   if (days === 0) return "today";
   return `${days} day${days !== 1 ? "s" : ""} ago`;
-}
-
-function pickActivePhase(rt?: RoadmapTasks): PhaseTasks | null {
-  if (!rt) return null;
-  const ph = rt.phases;
-  return (
-    ph.find((p) => p.statusKey === "active" && p.total > 0) ||
-    ph.find((p) => p.total > p.doneCount) ||
-    ph.find((p) => p.total > 0) ||
-    null
-  );
 }
 
 function CardChrome({ p }: { p: ProjectCard }) {
@@ -144,6 +138,8 @@ export default function Dashboard({
   initialFeatured,
   initialBannerOpen = false,
   initialWaitingOpen = false,
+  initialLens = "eisenhower",
+  board,
 }: {
   view: DashView;
   initialFigure: number;
@@ -152,10 +148,13 @@ export default function Dashboard({
   initialFeatured?: string;
   initialBannerOpen?: boolean;
   initialWaitingOpen?: boolean;
+  initialLens?: Lens;
+  board?: BoardView;
 }) {
   const [figIdx, setFigIdx] = useState(initialFigure);
   const [style, setStyle] = useState<CardStyle>(initialStyle);
   const [bannerOpen, setBannerOpen] = useState(initialBannerOpen);
+  const [lens, setLens] = useState<Lens>(initialLens);
   const defaultFeatured =
     (view.projects.find((p) => p.isLead && !p.parked) ||
       view.projects.find((p) => !p.parked) ||
@@ -174,6 +173,10 @@ export default function Dashboard({
   function pickStyle(s: CardStyle) {
     setStyle(s);
     setPrefCookie("workos.cardStyle", s);
+  }
+  function pickLens(l: Lens) {
+    setLens(l);
+    setPrefCookie("workos.lens", l);
   }
   function toggleBanner() {
     const next = !bannerOpen;
@@ -336,27 +339,45 @@ export default function Dashboard({
             <div>
               <div className="col-hd">
                 <h2>Projects</h2>
-                <div className="toggle" role="group" aria-label="Card style">
-                  <button type="button" className={style === "calm" ? "on" : ""} aria-pressed={style === "calm"} onClick={() => pickStyle("calm")}>Calm</button>
-                  <button type="button" className={style === "bold" ? "on" : ""} aria-pressed={style === "bold"} onClick={() => pickStyle("bold")}>Bold</button>
+                {/* Two lenses on the same data: Eisenhower answers what matters,
+                    the board answers what is moving. Tabs, never a replacement. */}
+                <div className="toggle" role="group" aria-label="View">
+                  <button type="button" className={lens === "eisenhower" ? "on" : ""} aria-pressed={lens === "eisenhower"} onClick={() => pickLens("eisenhower")}>Priority</button>
+                  <button type="button" className={lens === "board" ? "on" : ""} aria-pressed={lens === "board"} onClick={() => pickLens("board")}>Board</button>
                 </div>
+                {lens === "eisenhower" && (
+                  <div className="toggle" role="group" aria-label="Card style">
+                    <button type="button" className={style === "calm" ? "on" : ""} aria-pressed={style === "calm"} onClick={() => pickStyle("calm")}>Calm</button>
+                    <button type="button" className={style === "bold" ? "on" : ""} aria-pressed={style === "bold"} onClick={() => pickStyle("bold")}>Bold</button>
+                  </div>
+                )}
               </div>
 
-              {activeOthers.length ? (
-                <div className="cards">{activeOthers.map(renderCard)}</div>
-              ) : somedayOthers.length === 0 ? (
-                <div className="empty"><div className="e" aria-hidden="true">🎯</div>Your one focus is pinned on the left.</div>
-              ) : null}
+              {lens === "board" ? (
+                board ? (
+                  <Board board={board} />
+                ) : (
+                  <div className="empty"><div className="e" aria-hidden="true">🗂️</div>No tasks to place on the board.</div>
+                )
+              ) : (
+                <>
+                  {activeOthers.length ? (
+                    <div className="cards">{activeOthers.map(renderCard)}</div>
+                  ) : somedayOthers.length === 0 ? (
+                    <div className="empty"><div className="e" aria-hidden="true">🎯</div>Your one focus is pinned on the left.</div>
+                  ) : null}
 
-              {somedayOthers.length > 0 && (
-                <details className="someday-fold">
-                  <summary>
-                    <span className="someday-caret" aria-hidden="true">▸</span>
-                    <span>Someday / parked</span>
-                    <span className="someday-count">{somedayOthers.length}</span>
-                  </summary>
-                  <div className="cards" style={{ marginTop: 14 }}>{somedayOthers.map(renderCard)}</div>
-                </details>
+                  {somedayOthers.length > 0 && (
+                    <details className="someday-fold">
+                      <summary>
+                        <span className="someday-caret" aria-hidden="true">▸</span>
+                        <span>Someday / parked</span>
+                        <span className="someday-count">{somedayOthers.length}</span>
+                      </summary>
+                      <div className="cards" style={{ marginTop: 14 }}>{somedayOthers.map(renderCard)}</div>
+                    </details>
+                  )}
+                </>
               )}
 
               {view.areas.length > 0 && (() => {

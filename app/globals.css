@@ -438,6 +438,38 @@ main{animation:fadeup .35s ease}
 .area-goal-num{color:var(--ink-soft)}
 .area-goal-empty{font-size:12px;color:var(--ink-faint)}
 
+/* Next · Doing · Done — the second lens, a TAB beside the Eisenhower cards
+   (never a replacement: one answers what matters, the other what is moving).
+   Columns come from the `(started YYYY-MM-DD)` suffix; the WIP cap on Doing is
+   the actual feature, so a breach is the one thing here that changes colour. */
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media(max-width:900px){.board{grid-template-columns:1fr}}
+.bcol{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:var(--sh);padding:12px;min-width:0}
+.bcol-warn{border-color:var(--gold-ink)}
+.bcol-hd{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+.bcol-h{display:flex;align-items:center;gap:8px;width:100%;font-family:var(--serif);font-size:15px;font-weight:600;color:var(--ink);margin:0}
+.bcol-h-btn{min-height:44px;padding:0;background:none;border:none;font:inherit;font-family:var(--serif);font-size:15px;font-weight:600;color:var(--ink);text-align:left;cursor:pointer}
+.bcol-caret{font-size:10px;color:var(--ink-faint)}
+.bcol-n{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;padding:0 5px;background:var(--line-soft);color:var(--ink-soft);border-radius:20px;font-family:var(--sans);font-size:11px;font-weight:700;line-height:1}
+.bcol-warn .bcol-n{background:var(--gold-ink);color:#fff}
+/* the breach question, asked rather than answered — the decision stays his */
+.bcol-note{font-size:12px;line-height:1.45;color:var(--warn-ink);margin:6px 0 2px}
+.bcol-body{display:flex;flex-direction:column}
+.bcol-empty{font-size:12px;color:var(--ink-faint);margin:8px 0 2px}
+.bcard{padding:8px 0;border-bottom:1px solid var(--line-soft)}
+.bcard:last-child{border-bottom:none}
+.bcard-row{display:flex;align-items:flex-start;gap:10px;width:100%;min-height:44px;padding:0;border:none;background:none;font:inherit;text-align:left;color:inherit;cursor:pointer}
+.bcard-row.writing{opacity:.78}
+.bcard-row.writing .box{border-color:var(--accent)}
+.bcard-t{font-size:13px;line-height:1.4}
+.bcard-t.done{text-decoration:line-through;color:var(--ink-faint)}
+.bcard-meta{display:flex;align-items:center;gap:8px;padding-left:30px;margin-top:2px}
+.bcard-src{font-size:11px;color:var(--ink-faint)}
+a.bcard-src:hover{color:var(--ink-soft);text-decoration:underline}
+.bcard-age{font-size:11px;font-weight:700;color:var(--ink-faint)}
+.bcard-age.lvl-amber{color:var(--gold-ink)}
+.bcard-age.lvl-red{color:var(--warn-ink)}
+
 /* WAITING.md — "blocked on you", as a COLLAPSIBLE STRIP rather than a band.
    A band would have stacked a permanent block above the projects, which is the
    one shape this page's direction rules out. At rest it is a single 44px row
