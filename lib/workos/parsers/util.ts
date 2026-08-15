@@ -77,6 +77,48 @@ export function daysUntil(iso: string, from: Date = new Date()): number {
   return Math.round((target.getTime() - start.getTime()) / 86_400_000);
 }
 
+/**
+ * `(started YYYY-MM-DD)` — the WorkOS standard's third task state, added
+ * 2026-08-13. Absent = Next · present + unticked = Doing · ticked = Done.
+ *
+ * A malformed date is treated as ABSENT, never an error — the degrade-gracefully
+ * rule every consumer of the standard follows. The strict shape already rejects
+ * `(started last Tuesday)`; the round-trip check additionally rejects a
+ * well-shaped impossibility like `2026-13-45`, which would otherwise reach the
+ * age arithmetic as NaN.
+ */
+const STARTED_RE = /\(started\s+(\d{4}-\d{2}-\d{2})\)/i;
+
+/**
+ * True for a date that actually exists — rejects `2026-13-45` and `2026-02-30`.
+ *
+ * Compared field-by-field in LOCAL time on purpose. Round-tripping through
+ * `toISOString()` looks equivalent and is not: it converts to UTC first, so
+ * east-of-Greenwich every valid date came back a day early and every
+ * `(started …)` was discarded as malformed. The whole Doing column read 0.
+ */
+export function isRealDate(iso: string): boolean {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return false;
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
+
+export function startedDateOf(afterBox: string): string | undefined {
+  const m = afterBox.match(STARTED_RE);
+  return m && isRealDate(m[1]) ? m[1] : undefined;
+}
+
+/** Drop a recognised `(started …)` from DISPLAY text. Never from a write anchor. */
+export function stripStarted(afterBox: string): string {
+  return startedDateOf(afterBox) ? afterBox.replace(STARTED_RE, "") : afterBox;
+}
+
+/** Whole days since a timestamp (ms). Never negative; 0 = touched today. */
+export function daysSinceMs(ms: number, now: number = Date.now()): number {
+  return Math.max(0, Math.floor((now - ms) / 86_400_000));
+}
+
 /** Local "today" as YYYY-MM-DD (the app's day boundary = local midnight). */
 export function todayISO(from: Date = new Date()): string {
   const y = from.getFullYear();

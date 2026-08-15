@@ -1,4 +1,5 @@
 import type { TodosDoc, TodoSection } from "../types";
+import { startedDateOf } from "./util";
 
 /**
  * Parse a todos.md into sections of checkbox quests + context notes.
@@ -34,6 +35,7 @@ export function parseTodos(lines: string[]): TodosDoc {
         checked,
         lineNumber: i,
         addedDate: added?.[1],
+        started: startedDateOf(text),
         section: cur.heading,
       });
       return;

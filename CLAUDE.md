@@ -15,15 +15,24 @@ transforms it into a view, and never writes app-specific concepts back into the 
 
 ## How to run
 
+**The package manager is `bun`** (switched at `abcad13`, "replace npm with bun"). `bun.lock` is
+committed and there is **no `package-lock.json`** — use `bun`, not `npm`, so the lockfile stays the
+one the repo actually tracks.
+
 ```bash
-npm install
-npm run dev        # http://localhost:3001  (note: port 3001, not 3000)
-npm run build      # production build
-npm run start      # serve production on :3001
+bun install
+bun run dev        # http://localhost:3001  (note: port 3001, not 3000)
+bun run build      # production build
+bun run start      # serve production on :3001
 ```
 
+> The `scripts` in `package.json` are deliberately **runner-neutral** (`next dev -p 3001`, not
+> `bun next …`). That is correct and needs no change — `bun run dev` invokes them fine. The lockfile
+> is what pins the runner, so the only thing that can drift here is this document. It did: it said
+> `npm` in four places until 2026-08-16.
+
 There is **no test suite, linter script, or typecheck script** wired into `package.json`. To
-type‑check, run `npx tsc --noEmit`. Verify changes by running the dev server against a real or
+type‑check, run `bunx tsc --noEmit`. Verify changes by running the dev server against a real or
 sample vault (`WORKOS_PATH`).
 
 ## Architecture in one breath
@@ -82,7 +91,41 @@ sample vault (`WORKOS_PATH`).
 - `goals.md`: `Label: start → current → target unit by <date>`.
 - `habits.md`: `- [domain] Label · <cadence> · Nxp`; cadence ∈ `daily` | `Nx/week` |
   `weekly[:Day]` | `onDays:Mon,Wed,Fri`. Completions appended to `habits-log.md`.
+- `WAITING.md`: `## Blocked on you`, then
+  `- [ ] <action> · owed: YYYY-MM-DD · unblocks: <chain> · how: <command or file>`. Heading-scoped and
+  fence-skipping — **the contract section's template line is a valid-looking checkbox and must never
+  become an item.** Degrades rather than throws: a line missing `how:` still renders, a malformed
+  `owed:` is treated as absent, and with no heading it falls back to reading the whole file.
 - Parsers degrade gracefully: an unparseable line is skipped, never thrown.
+
+### `ROOT_FILES` — who actually reads each one
+
+`paths.ts` declares eight root files. **Not all of them have a parser, and that is intentional** — but
+a path constant that implies a consumer which does not exist is a real trap, so the inventory is
+written down here rather than re-derived by reading `scan.ts` every time.
+
+| `ROOT_FILES` key | How it is consumed | Parsed? |
+| --- | --- | --- |
+| `now` | `parseNow` in `scan.ts`; **plus** its mtime → the staleness badge | ✅ |
+| `waiting` | `parseWaiting` in `scan.ts` → the collapsible strip | ✅ |
+| `habits` | `parseHabits` → the habit strip | ✅ |
+| `habitsLog` | `parseHabitLog` → streaks (the app is this file's **writer**) | ✅ |
+| `vision` | `parseVision` → the Vision band; **plus** its mtime → the staleness badge | ✅ |
+| `hot` | **mtime only** → the staleness badge. Its *contents* are never read | ❌ by design |
+| `log` | **fingerprint only** — `vaultVersion()` loops `Object.values(ROOT_FILES)`, so an append makes the client revalidate | ❌ |
+| `claude` | **fingerprint only**, same as `log` | ❌ |
+
+**Read that last column precisely.** `hot`, `log` and `claude` have **no parser and no `types.ts`
+field** — the `log`/`hot` parsers were deliberately removed 2026-06-24 and should not come back
+speculatively. They are *not*, however, dead constants: every key here is fingerprinted by
+`vaultVersion()`, so listing a file in `ROOT_FILES` is itself a meaningful subscription — it is how an
+edit in Obsidian makes the open page revalidate. **Adding a key here has a real effect even with no
+parser; removing one silently stops the page refreshing on that file.**
+
+> **Branch caveat (2026-08-16):** the `waiting` row and both mtime→badge behaviours arrived with
+> **D1–D4 on branch `dashboard-d1-d4`, which is not merged into `main`.** On `main` today,
+> `ROOT_FILES.waiting` does not exist and `hot` is fingerprint-only like `log`. The table above
+> describes the branch. Delete this caveat when it merges.
 
 ## Naming — neutral standard (de-Sovereigned 2026-06-24)
 
@@ -90,7 +133,10 @@ The predecessor "Sovereign" app is retired. All identifiers are now neutral so t
 vendor-agnostic standard any consumer can read:
 
 - Preference **cookies** (read server-side so the first paint matches — no hydration flash):
-  `workos.cardStyle`, `workos.featured`. (The old `workos.dashboard.settings` / `settings.ts` were removed.)
+  `workos.cardStyle`, `workos.featured`, and — on branch `dashboard-d1-d4` — `workos.waitingOpen`
+  (the WAITING strip's expanded state) and `workos.lens` (Eisenhower vs. board). **Any new preference
+  follows this same server-read pattern**; a client-only read reintroduces the flash.
+  (The old `workos.dashboard.settings` / `settings.ts` were removed.)
 - Sidecar dir `.workos-data` and env var `WORKOS_DATA_PATH`.
 - Cross-writer lock files `*.workos.lock` (defined by the WorkOS standard) and journal
   `owner: "workos-dashboard"`.
@@ -141,7 +187,7 @@ A graphify knowledge graph of this codebase lives in `graphify-out/` (`graph.htm
 
 Full runbook: **`.claude/skills/dashboard-dev/SKILL.md`**. The essentials:
 
-- **Run:** `npm run dev` → http://localhost:3001 (background). Background dev servers don't
+- **Run:** `bun run dev` → http://localhost:3001 (background). Background dev servers don't
   survive a session ending — check `Get-NetTCPConnection -LocalPort 3001` / curl `/` before
   restarting (a "task stopped" note can fire while the process is still listening).
 - **The recurring `Jest worker … exceeding retry limit` error is NOT a test failure.** It's
@@ -149,10 +195,11 @@ Full runbook: **`.claude/skills/dashboard-dev/SKILL.md`**. The essentials:
   dev server is a child of Claude's background task; the main listener survives but the worker
   pool dies — confirmed crashing at ~91 MB, so it's not OOM). Symptom: `/` serves 200 but a
   `/project/<slug>` 500s while `tsc` is clean — and it's a `500`, not a `404` (a 404 = the project
-  was renamed/archived; check `ls 01_Projects/_active/`). **Fix:** stop the server + child workers,
-  `rm -rf .next`, `npm run dev`, verify `/` and a `/project/<slug>` are 200. **Durable fix: run
-  `npm run dev` in your own terminal, not via Claude** (a `NODE_OPTIONS` heap bump does NOT help).
-- **Verify** (no test/lint/typecheck scripts): `npx tsc --noEmit`; curl routes for 200 (always
+  was renamed/archived; check `ls 01_Projects/` — projects are **flat**, the `_active/` split was
+  removed from the standard 2026-06-30). **Fix:** stop the server + child workers,
+  `rm -rf .next`, `bun run dev`, verify `/` and a `/project/<slug>` are 200. **Durable fix: run
+  `bun run dev` in your own terminal, not via Claude** (a `NODE_OPTIONS` heap bump does NOT help).
+- **Verify** (no test/lint/typecheck scripts): `bunx tsc --noEmit`; curl routes for 200 (always
   test a project route after a restart — it forces a fresh compile); Chrome MCP for visual.
 - **External vault edits are safe.** Reads go through `safeRead` + throw-safe regex parsers
   (a malformed file degrades its section, never 500s); writes use lock + anchor + compare-and-swap
@@ -165,3 +212,15 @@ This is a calm **one-page** app: the user iteratively compacts sections (habits 
 tab strip, completed tasks → per-phase "Completed (N)" dropdown, areas → chips) so the projects
 sit above the fold. When adding or growing UI, prefer tabs / chips / collapsibles over stacked
 rows. A VISION.md goals layer (`VisionBand`) was added on top of the original reader.
+
+**This rule has already overruled a written plan once — treat it as binding, not advisory.** The
+2026-08-11 improvement plan specified the `WAITING.md` surface as *a new stacked band above the Vision
+band*. It shipped (D3) as a **collapsible strip** instead, on Natth's call, because a band would have
+pushed the projects below the fold — the exact thing every compaction pass so far has been undoing. At
+rest the strip is one line carrying the two facts that matter: how many chains are stopped, and how
+long the oldest has been stopped. Likewise the Next/Doing/Done board (D4) landed as a **tab beside**
+the Eisenhower view, with Eisenhower still the default, rather than as a second stacked section.
+
+**And the empty state is part of the design, not a fallback:** the WAITING strip **renders nothing at
+all** when the ledger is empty. A permanently-present empty widget trains the user to stop seeing it —
+which is precisely how the old always-firing freshness alarm lost its credibility.

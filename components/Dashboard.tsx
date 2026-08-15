@@ -4,16 +4,22 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { FIGURES } from "@/lib/figures";
 import type { DashView, DeadlineLabel, ProjectCard } from "@/lib/view";
-import type { RoadmapTasks, PhaseTasks } from "@/lib/roadmap-tasks";
+import type { RoadmapTasks } from "@/lib/roadmap-tasks";
+import { pickActivePhase } from "@/lib/phase";
 import { Crown } from "./Crown";
 import { TaskChecklist } from "./TaskChecklist";
 import { RemoteImage } from "./RemoteImage";
 import { NowTicker } from "./NowTicker";
 import { HabitsReminder } from "./HabitsReminder";
 import { VisionBand } from "./VisionBand";
+import { WaitingStrip } from "./WaitingStrip";
+import { Board } from "./Board";
+import type { BoardView } from "@/lib/board";
 import { Prose } from "./Prose";
 
 type CardStyle = "calm" | "bold";
+/** Which lens the projects column is showing: what matters, or what's moving. */
+type Lens = "eisenhower" | "board";
 
 function setPrefCookie(key: string, value: string) {
   try {
@@ -40,15 +46,11 @@ function DeadlineChip({ due }: { due: DeadlineLabel }) {
   );
 }
 
-function pickActivePhase(rt?: RoadmapTasks): PhaseTasks | null {
-  if (!rt) return null;
-  const ph = rt.phases;
-  return (
-    ph.find((p) => p.statusKey === "active" && p.total > 0) ||
-    ph.find((p) => p.total > p.doneCount) ||
-    ph.find((p) => p.total > 0) ||
-    null
-  );
+// "12d" is for the eye; spoken it reads as "twelve d". Every age badge pairs the
+// terse form with this one in its accessible name — same split as DeadlineChip.
+function ageWords(days: number): string {
+  if (days === 0) return "today";
+  return `${days} day${days !== 1 ? "s" : ""} ago`;
 }
 
 function CardChrome({ p }: { p: ProjectCard }) {
@@ -135,6 +137,9 @@ export default function Dashboard({
   initialStyle = "calm",
   initialFeatured,
   initialBannerOpen = false,
+  initialWaitingOpen = false,
+  initialLens = "eisenhower",
+  board,
 }: {
   view: DashView;
   initialFigure: number;
@@ -142,10 +147,14 @@ export default function Dashboard({
   initialStyle?: CardStyle;
   initialFeatured?: string;
   initialBannerOpen?: boolean;
+  initialWaitingOpen?: boolean;
+  initialLens?: Lens;
+  board?: BoardView;
 }) {
   const [figIdx, setFigIdx] = useState(initialFigure);
   const [style, setStyle] = useState<CardStyle>(initialStyle);
   const [bannerOpen, setBannerOpen] = useState(initialBannerOpen);
+  const [lens, setLens] = useState<Lens>(initialLens);
   const defaultFeatured =
     (view.projects.find((p) => p.isLead && !p.parked) ||
       view.projects.find((p) => !p.parked) ||
@@ -164,6 +173,10 @@ export default function Dashboard({
   function pickStyle(s: CardStyle) {
     setStyle(s);
     setPrefCookie("workos.cardStyle", s);
+  }
+  function pickLens(l: Lens) {
+    setLens(l);
+    setPrefCookie("workos.lens", l);
   }
   function toggleBanner() {
     const next = !bannerOpen;
@@ -261,6 +274,20 @@ export default function Dashboard({
       </div>
 
       <main id="main">
+        {/* Blocked-on-you sits ABOVE the work on purpose: it is the one thing
+            that stops a chain moving, and it renders nothing at all when the
+            ledger is empty — which is the goal state, so it usually costs
+            nothing. One line at rest keeps the projects where they are. */}
+        {view.waiting && (
+          <div className="wrap" style={{ marginTop: 16 }}>
+            <WaitingStrip
+              waiting={view.waiting}
+              initialOpen={initialWaitingOpen}
+              onOpenChange={(o) => setPrefCookie("workos.waitingOpen", o ? "1" : "0")}
+            />
+          </div>
+        )}
+
         {view.vision ? (
           <div className="wrap" style={{ marginTop: 16 }}>
             <VisionBand vision={view.vision}>
@@ -312,27 +339,45 @@ export default function Dashboard({
             <div>
               <div className="col-hd">
                 <h2>Projects</h2>
-                <div className="toggle" role="group" aria-label="Card style">
-                  <button type="button" className={style === "calm" ? "on" : ""} aria-pressed={style === "calm"} onClick={() => pickStyle("calm")}>Calm</button>
-                  <button type="button" className={style === "bold" ? "on" : ""} aria-pressed={style === "bold"} onClick={() => pickStyle("bold")}>Bold</button>
+                {/* Two lenses on the same data: Eisenhower answers what matters,
+                    the board answers what is moving. Tabs, never a replacement. */}
+                <div className="toggle" role="group" aria-label="View">
+                  <button type="button" className={lens === "eisenhower" ? "on" : ""} aria-pressed={lens === "eisenhower"} onClick={() => pickLens("eisenhower")}>Priority</button>
+                  <button type="button" className={lens === "board" ? "on" : ""} aria-pressed={lens === "board"} onClick={() => pickLens("board")}>Board</button>
                 </div>
+                {lens === "eisenhower" && (
+                  <div className="toggle" role="group" aria-label="Card style">
+                    <button type="button" className={style === "calm" ? "on" : ""} aria-pressed={style === "calm"} onClick={() => pickStyle("calm")}>Calm</button>
+                    <button type="button" className={style === "bold" ? "on" : ""} aria-pressed={style === "bold"} onClick={() => pickStyle("bold")}>Bold</button>
+                  </div>
+                )}
               </div>
 
-              {activeOthers.length ? (
-                <div className="cards">{activeOthers.map(renderCard)}</div>
-              ) : somedayOthers.length === 0 ? (
-                <div className="empty"><div className="e" aria-hidden="true">🎯</div>Your one focus is pinned on the left.</div>
-              ) : null}
+              {lens === "board" ? (
+                board ? (
+                  <Board board={board} />
+                ) : (
+                  <div className="empty"><div className="e" aria-hidden="true">🗂️</div>No tasks to place on the board.</div>
+                )
+              ) : (
+                <>
+                  {activeOthers.length ? (
+                    <div className="cards">{activeOthers.map(renderCard)}</div>
+                  ) : somedayOthers.length === 0 ? (
+                    <div className="empty"><div className="e" aria-hidden="true">🎯</div>Your one focus is pinned on the left.</div>
+                  ) : null}
 
-              {somedayOthers.length > 0 && (
-                <details className="someday-fold">
-                  <summary>
-                    <span className="someday-caret" aria-hidden="true">▸</span>
-                    <span>Someday / parked</span>
-                    <span className="someday-count">{somedayOthers.length}</span>
-                  </summary>
-                  <div className="cards" style={{ marginTop: 14 }}>{somedayOthers.map(renderCard)}</div>
-                </details>
+                  {somedayOthers.length > 0 && (
+                    <details className="someday-fold">
+                      <summary>
+                        <span className="someday-caret" aria-hidden="true">▸</span>
+                        <span>Someday / parked</span>
+                        <span className="someday-count">{somedayOthers.length}</span>
+                      </summary>
+                      <div className="cards" style={{ marginTop: 14 }}>{somedayOthers.map(renderCard)}</div>
+                    </details>
+                  )}
+                </>
               )}
 
               {view.areas.length > 0 && (() => {
@@ -410,9 +455,49 @@ export default function Dashboard({
               })()}
 
               <div className="stat-row">
-                <span className="stat-chip"><b>{view.counts.inbox}</b> Inbox</span>
+                {/* The Inbox count says how much is queued; the age badge says
+                    whether anyone is draining it. Six items is fine — six items
+                    whose oldest is 42 days is sediment. */}
+                <span
+                  className="stat-chip"
+                  aria-label={
+                    `${view.counts.inbox} inbox item${view.counts.inbox !== 1 ? "s" : ""}` +
+                    (view.inboxAge ? `, oldest ${ageWords(view.inboxAge.days)}` : "")
+                  }
+                >
+                  <b aria-hidden="true">{view.counts.inbox}</b>
+                  <span aria-hidden="true">Inbox</span>
+                  {view.inboxAge && (
+                    <span
+                      className={`stat-chip-age lvl-${view.inboxAge.level}`}
+                      aria-hidden="true"
+                      title={`Oldest item captured ${ageWords(view.inboxAge.days)}`}
+                    >
+                      {view.inboxAge.days}d
+                    </span>
+                  )}
+                </span>
                 <span className="stat-chip"><b>{view.counts.resources}</b> Resources</span>
                 <span className="stat-chip"><b>{view.counts.archive}</b> Archive</span>
+                {/* Root anchor surfaces. Nothing else in LifeOS reports when these
+                    go stale, so they rot unseen — this is the only daily surface
+                    that can say so. Same chip + age-badge pattern as the areas. */}
+                {view.freshness.map((f) => (
+                  <span
+                    key={f.file}
+                    className="stat-chip"
+                    aria-label={`${f.file} last touched ${ageWords(f.days)}`}
+                  >
+                    <span className="stat-chip-file" aria-hidden="true">{f.file}</span>
+                    <span
+                      className={`stat-chip-age lvl-${f.level}`}
+                      aria-hidden="true"
+                      title={`Last touched ${ageWords(f.days)}`}
+                    >
+                      {f.days}d
+                    </span>
+                  </span>
+                ))}
               </div>
             </div>
           </div>

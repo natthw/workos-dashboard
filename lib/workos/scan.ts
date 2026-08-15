@@ -21,6 +21,7 @@ import { parseRoadmap, phaseProgress } from "./parsers/roadmap";
 import { parseTodos } from "./parsers/todos";
 import { parseAreaGoals } from "./parsers/goals";
 import { parseNow } from "./parsers/now";
+import { parseWaiting } from "./parsers/waiting";
 import { parseHabits } from "./parsers/habits";
 import { parseHabitLog } from "./parsers/habitlog";
 import { parseVision } from "./parsers/vision";
@@ -31,7 +32,7 @@ import {
   priorityOf,
   projectType,
 } from "./parsers/project";
-import { daysUntil, todayISO } from "./parsers/util";
+import { daysSinceMs, daysUntil, extractISODate, todayISO } from "./parsers/util";
 
 // --- small fs helpers ---------------------------------------------------------
 
@@ -96,6 +97,40 @@ function countMd(absDir: string, excludeReadme = false): number {
 
 function maxMtime(...mtimes: (number | undefined)[]): number {
   return mtimes.reduce<number>((m, v) => (v && v > m ? v : m), 0);
+}
+
+/**
+ * Age of the oldest item sitting in `00_Inbox`, in whole days — the dimension
+ * the count alone cannot carry. Six items is fine; six items where the oldest is
+ * 42 days is a queue nobody is draining.
+ *
+ * "Age" is when the item was **captured**, not when the file last changed: a
+ * note named `2026-06-30-….md` is old even if it was reopened yesterday, and
+ * mtime alone resets every time Drive re-syncs the folder. So the filename's ISO
+ * date wins when there is one, and mtime is the fallback for undated names.
+ * `README.md` is the zone's contract rather than a backlog item, so it is
+ * excluded here exactly as `inboxCount` already excludes it.
+ *
+ * Returns undefined for an empty inbox — nothing to be old.
+ */
+function oldestInboxAgeDays(): number | undefined {
+  const files = walkMd(resolveInVault(PARA.inbox)).filter(
+    (f) => f.name.toLowerCase() !== "readme.md",
+  );
+  let oldest: number | undefined;
+  for (const f of files) {
+    const named = extractISODate(f.name);
+    let age: number;
+    if (named) {
+      age = Math.max(0, -daysUntil(named)); // a future-dated capture is 0d, not negative
+    } else {
+      const mtime = statMtimeMs(f.absPath);
+      if (!mtime) continue; // unreadable — skip rather than claim an age
+      age = daysSinceMs(mtime);
+    }
+    if (oldest == null || age > oldest) oldest = age;
+  }
+  return oldest;
 }
 
 // --- campaigns (projects) -----------------------------------------------------
@@ -258,9 +293,13 @@ export function scanRealm(): RealmModel {
   const nowRead = safeRead(path.join(root, ROOT_FILES.now));
   const now = nowRead ? parseNow(nowRead.lines) : undefined;
 
+  const waitingRead = safeRead(path.join(root, ROOT_FILES.waiting));
+  const waiting = waitingRead ? parseWaiting(waitingRead.lines) : undefined;
+
   const inboxCount = countMd(resolveInVault(PARA.inbox), true);
   const resourceCount = countMd(resolveInVault(PARA.resources), true);
   const archiveCount = countMd(resolveInVault(PARA.archive), true);
+  const inboxOldestAgeDays = oldestInboxAgeDays();
 
   // Habits read live from habits.md + the append-only habits-log.md.
   const habitsRead = safeRead(path.join(root, ROOT_FILES.habits));
@@ -277,13 +316,27 @@ export function scanRealm(): RealmModel {
   const visionRead = safeRead(path.join(root, ROOT_FILES.vision));
   const vision = visionRead ? parseVision(visionRead.lines, visionRead.relPath) : undefined;
 
+  // Last-touched mtimes of the three root anchor surfaces. Nothing in LifeOS
+  // reports when these go stale, so they rot silently; the dashboard is the one
+  // surface a human opens daily, so it is where the signal can land. hot.md is
+  // not otherwise read here — only its mtime matters.
+  const rootFreshness = {
+    now: nowRead?.mtimeMs,
+    vision: visionRead?.mtimeMs,
+    hot: statMtimeMs(path.join(root, ROOT_FILES.hot)) || undefined,
+  };
+
   return {
     campaigns: campaigns.map(stripInternal),
     provinces: provinces.map(stripInternal),
     now,
+    waiting,
+    waitingRelPath: waitingRead?.relPath,
     inboxCount,
+    inboxOldestAgeDays,
     resourceCount,
     archiveCount,
+    rootFreshness,
     greatSiege: deriveGreatSiege(campaigns),
     scannedAtISO: new Date().toISOString(),
     habits,

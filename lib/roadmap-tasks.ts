@@ -11,6 +11,7 @@
 // after the checkbox (the anchor findTodoLine matches on); `text` is cleaned for display.
 
 import { readVaultFile } from "@/lib/workos/reader";
+import { startedDateOf, stripStarted } from "@/lib/workos/parsers/util";
 
 export type PhaseStatus = "done" | "active" | "todo";
 
@@ -19,6 +20,8 @@ export interface ChunkTask {
   raw: string;      // exact text after "[ ]", used as the write-back anchor
   checked: boolean;
   lineNumber: number;
+  /** ISO date from `(started YYYY-MM-DD)` — the board's third state. */
+  started?: string;
 }
 
 export interface PhaseTasks {
@@ -58,6 +61,23 @@ function clean(t: string): string {
   return t.replace(/\*\*/g, "").replace(/`/g, "").replace(/\s+/g, " ").trim();
 }
 
+/**
+ * One task row. `raw` stays byte-exact (it is the write anchor); only the
+ * DISPLAY text drops a recognised `(started …)`, whose meaning the board carries
+ * as a column and an age badge instead. `(added …)` is left alone — it renders
+ * as it always has.
+ */
+function makeTask(afterBox: string, checked: boolean, lineNumber: number): ChunkTask {
+  const raw = afterBox.trim();
+  return {
+    text: clean(stripStarted(raw)),
+    raw,
+    checked,
+    lineNumber,
+    started: startedDateOf(raw),
+  };
+}
+
 /** A `## Sub-Project N — …` (standard) or legacy `## Chunk N · …` heading. */
 const SUBPROJECT_RE = /^##\s+(?:sub-?project|chunk)\b/i;
 
@@ -91,8 +111,7 @@ export function parsePhaseTasks(lines: string[]): PhaseTasks[] {
         cur = { name: "Tasks", statusKey: "todo", lineNumber: -1, tasks: [], doneCount: 0, total: 0 };
         phases.push(cur);
       }
-      const checked = cb[2].toLowerCase() === "x";
-      cur.tasks.push({ text: clean(cb[3]), raw: cb[3].trim(), checked, lineNumber: i });
+      cur.tasks.push(makeTask(cb[3], cb[2].toLowerCase() === "x", i));
     }
   });
 
@@ -152,8 +171,7 @@ export function parseSubProjects(lines: string[]): SubProjectTasks[] {
     const cb = ln.match(/^(\s*[-*]\s+)\[([ xX])\]\s*(.*)$/);
     if (cb) {
       if (!curPhase) curPhase = ensurePhase("Tasks", i);
-      const checked = cb[2].toLowerCase() === "x";
-      curPhase.tasks.push({ text: clean(cb[3]), raw: cb[3].trim(), checked, lineNumber: i });
+      curPhase.tasks.push(makeTask(cb[3], cb[2].toLowerCase() === "x", i));
     }
   });
 
